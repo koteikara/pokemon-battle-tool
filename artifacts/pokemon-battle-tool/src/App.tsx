@@ -5,7 +5,12 @@ type Screen = "home" | "register" | "opponent" | "result";
 interface MyPokemon {
   id: string;
   name: string;
-  evs: string;
+  evH: number;
+  evA: number;
+  evB: number;
+  evC: number;
+  evD: number;
+  evS: number;
   move1: string;
   move2: string;
   move3: string;
@@ -15,7 +20,7 @@ interface MyPokemon {
 }
 
 // ── Allowed Pokémon (カタカナ) ───────────────────────────────────────────────
-export const ALLOWED_POKEMON: string[] = [
+const ALLOWED_POKEMON: string[] = [
   "フシギバナ",
   "メガフシギバナ",
   "リザードン",
@@ -395,7 +400,13 @@ const DUMMY_MYTEAM = [
 ];
 
 function emptyForm(): Omit<MyPokemon, "id"> {
-  return { name: "", evs: "", move1: "", move2: "", move3: "", move4: "", nature: "", item: "" };
+  return { name: "", evH: 0, evA: 0, evB: 0, evC: 0, evD: 0, evS: 0, move1: "", move2: "", move3: "", move4: "", nature: "", item: "" };
+}
+
+function formatEVs(p: MyPokemon): string {
+  const stats: [string, number][] = [["H", p.evH], ["A", p.evA], ["B", p.evB], ["C", p.evC], ["D", p.evD], ["S", p.evS]];
+  const nonZero = stats.filter(([, v]) => v > 0).map(([k, v]) => `${k}${v}`);
+  return nonZero.length > 0 ? nonZero.join(" ") : "努力値なし";
 }
 
 // ── App ───────────────────────────────────────────────────────────────────────
@@ -404,7 +415,14 @@ export default function App() {
   const [myTeam, setMyTeam] = useState<MyPokemon[]>(() => {
     try {
       const saved = localStorage.getItem("myTeam");
-      return saved ? JSON.parse(saved) : [];
+      if (!saved) return [];
+      const parsed = JSON.parse(saved) as MyPokemon[];
+      // Migrate old format that used evs: string
+      return parsed.map(p => ({
+        ...p,
+        evH: p.evH ?? 0, evA: p.evA ?? 0, evB: p.evB ?? 0,
+        evC: p.evC ?? 0, evD: p.evD ?? 0, evS: p.evS ?? 0,
+      }));
     } catch { return []; }
   });
   const [opponent, setOpponent] = useState<string[]>(() => {
@@ -441,7 +459,7 @@ export default function App() {
 
   function editEntry(p: MyPokemon) {
     setEditingId(p.id);
-    setForm({ name: p.name, evs: p.evs, move1: p.move1, move2: p.move2, move3: p.move3, move4: p.move4, nature: p.nature, item: p.item });
+    setForm({ name: p.name, evH: p.evH, evA: p.evA, evB: p.evB, evC: p.evC, evD: p.evD, evS: p.evS, move1: p.move1, move2: p.move2, move3: p.move3, move4: p.move4, nature: p.nature, item: p.item });
   }
 
   function cancelEdit() {
@@ -553,6 +571,76 @@ function HomeScreen({ onNavigate }: { onNavigate: (s: Screen) => void }) {
   );
 }
 
+// ── EVSection ─────────────────────────────────────────────────────────────────
+const EV_MAX_SINGLE = 32;
+const EV_MAX_TOTAL = 66;
+const EV_STATS: { key: "evH" | "evA" | "evB" | "evC" | "evD" | "evS"; label: string; full: string }[] = [
+  { key: "evH", label: "H", full: "HP" },
+  { key: "evA", label: "A", full: "こうげき" },
+  { key: "evB", label: "B", full: "ぼうぎょ" },
+  { key: "evC", label: "C", full: "とくこう" },
+  { key: "evD", label: "D", full: "とくぼう" },
+  { key: "evS", label: "S", full: "すばやさ" },
+];
+
+function EVSection({ form, setForm }: { form: Omit<MyPokemon, "id">; setForm: (f: Omit<MyPokemon, "id">) => void }) {
+  const total = EV_STATS.reduce((sum, s) => sum + (form[s.key] as number), 0);
+  const remaining = EV_MAX_TOTAL - total;
+  const overTotal = total > EV_MAX_TOTAL;
+  const overSingle = EV_STATS.some(s => (form[s.key] as number) > EV_MAX_SINGLE);
+
+  function handleChange(key: keyof typeof form, raw: string) {
+    const val = raw === "" ? 0 : Math.max(0, parseInt(raw, 10) || 0);
+    setForm({ ...form, [key]: val });
+  }
+
+  return (
+    <div className="field">
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+        <label className="field-label" style={{ margin: 0 }}>努力値</label>
+        <div style={{ fontSize: 13, color: overTotal ? "#cc2233" : remaining === 0 ? "#19a355" : "#888" }}>
+          合計 <strong>{total}</strong> / {EV_MAX_TOTAL}
+          {remaining > 0 && !overTotal && <span style={{ marginLeft: 6, color: "#aaa" }}>（残り{remaining}）</span>}
+        </div>
+      </div>
+
+      <div className="ev-grid">
+        {EV_STATS.map(({ key, label, full }) => {
+          const val = form[key] as number;
+          const isOver = val > EV_MAX_SINGLE;
+          return (
+            <div key={key} className="ev-cell">
+              <div className="ev-label" title={full}>{label}</div>
+              <input
+                type="number"
+                inputMode="numeric"
+                className={`ev-input${isOver ? " ev-input-error" : ""}`}
+                min={0}
+                max={EV_MAX_SINGLE}
+                value={val === 0 ? "" : val}
+                placeholder="0"
+                onChange={e => handleChange(key, e.target.value)}
+                data-testid={`input-ev-${label.toLowerCase()}`}
+              />
+            </div>
+          );
+        })}
+      </div>
+
+      {overSingle && (
+        <div className="field-error-msg" style={{ marginTop: 6 }} data-testid="error-ev-single">
+          1つの能力は{EV_MAX_SINGLE}までです
+        </div>
+      )}
+      {overTotal && (
+        <div className="field-error-msg" style={{ marginTop: 6 }} data-testid="error-ev-total">
+          努力値の合計は{EV_MAX_TOTAL}までです
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── RegisterScreen ────────────────────────────────────────────────────────────
 interface RegisterProps {
   form: Omit<MyPokemon, "id">;
@@ -571,7 +659,9 @@ function RegisterScreen({ form, setForm, myTeam, onSave, onDelete, onEdit, onCan
       setForm({ ...form, [key]: e.target.value });
   }
 
-  const canSave = form.name.trim() !== "" && isAllowed(form.name);
+  const evTotal = EV_STATS.reduce((sum, s) => sum + (form[s.key] as number), 0);
+  const evOk = evTotal <= EV_MAX_TOTAL && EV_STATS.every(s => (form[s.key] as number) <= EV_MAX_SINGLE);
+  const canSave = form.name.trim() !== "" && isAllowed(form.name) && evOk;
 
   return (
     <div className="screen">
@@ -588,16 +678,7 @@ function RegisterScreen({ form, setForm, myTeam, onSave, onDelete, onEdit, onCan
           />
         </div>
 
-        <div className="field">
-          <label className="field-label">努力値（自由記述）</label>
-          <input
-            className="field-input"
-            placeholder="例: 攻252 素252 H4"
-            value={form.evs}
-            onChange={f("evs")}
-            data-testid="input-evs"
-          />
-        </div>
+        <EVSection form={form} setForm={setForm} />
 
         <div className="field">
           <label className="field-label">技</label>
@@ -662,7 +743,7 @@ function RegisterScreen({ form, setForm, myTeam, onSave, onDelete, onEdit, onCan
                   <div className="pokemon-card-meta">
                     {p.nature && <span className="pokemon-card-tag">{p.nature}</span>}
                     {p.item && <span className="pokemon-card-tag">{p.item}</span>}
-                    {p.evs && <span className="pokemon-card-tag">{p.evs}</span>}
+                    <span className="pokemon-card-tag">{formatEVs(p)}</span>
                     {[p.move1, p.move2, p.move3, p.move4].filter(Boolean).map((m, i) => (
                       <span className="pokemon-card-tag" key={i}>{m}</span>
                     ))}
