@@ -263,10 +263,19 @@ body {
 }
 
 .ev-label {
-  font-size: 13px;
-  font-weight: 700;
-  color: #555;
+  font-size: 14px;
+  font-weight: 800;
+  color: #333;
   letter-spacing: 0.04em;
+  line-height: 1;
+}
+
+.ev-sublabel {
+  font-size: 10px;
+  color: #aaa;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .ev-input {

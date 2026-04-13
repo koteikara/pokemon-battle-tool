@@ -610,7 +610,8 @@ function EVSection({ form, setForm }: { form: Omit<MyPokemon, "id">; setForm: (f
           const isOver = val > EV_MAX_SINGLE;
           return (
             <div key={key} className="ev-cell">
-              <div className="ev-label" title={full}>{label}</div>
+              <div className="ev-label">{label}</div>
+              <div className="ev-sublabel">{full}</div>
               <input
                 type="number"
                 inputMode="numeric"
