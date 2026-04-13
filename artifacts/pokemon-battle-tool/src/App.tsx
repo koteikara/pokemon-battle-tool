@@ -387,17 +387,151 @@ const NATURES = [
   "おとなしい", "なまいき", "しんちょう", "きまぐれ", "なんでもすき",
 ];
 
-const DUMMY_OPPONENT = [
-  { name: "カイリュー", reason: "はがねがないため選出されやすい", badge: "danger" },
-  { name: "ガブリアス", reason: "構成的にじめんが厄介", badge: "danger" },
-  { name: "サーフゴー", reason: "受け出しに来る可能性が高い", badge: "danger" },
-];
+// ── Scoring System ────────────────────────────────────────────────────────────
+interface PokemonTags {
+  fast?: boolean;       // 素早さが高い → +2
+  attacker?: boolean;   // 攻撃力が高い → +2
+  lead?: boolean;       // 先発向き     → +3
+  defensive?: boolean;  // 受け性能が高い → +1
+  meta?: boolean;       // メタ上位・伝説 → +3
+}
 
-const DUMMY_MYTEAM = [
-  { name: "テツノカイナ", reason: "カイリューへの最高のカウンター", badge: "blue" },
-  { name: "ランドロス", reason: "ガブリアスとの同速勝負を制す", badge: "blue" },
-  { name: "ウーラオス", reason: "サーフゴーに打点を持てる", badge: "blue" },
-];
+const POKEMON_SCORE_TABLE: Record<string, PokemonTags> = {
+  // ─── 最強メタ ─────────────────────────────────────────────────────────────
+  "ガブリアス":       { fast: true, attacker: true, lead: true, meta: true },
+  "メガガブリアス":   { fast: true, attacker: true, meta: true },
+  "カイリュー":       { attacker: true, meta: true },
+  "メガカイリュー":   { attacker: true, meta: true },
+  "ミミッキュ":       { lead: true, meta: true },
+  "ドラパルト":       { fast: true, attacker: true, lead: true, meta: true },
+  "ガオガエン":       { attacker: true, lead: true, meta: true },
+  "ウルガモス":       { fast: true, attacker: true, meta: true },
+  "バンギラス":       { attacker: true, defensive: true, meta: true },
+  "メガバンギラス":   { attacker: true, defensive: true, meta: true },
+  "ゲッコウガ":       { fast: true, attacker: true, meta: true },
+  "メガゲッコウガ":   { fast: true, attacker: true, meta: true },
+  "サザンドラ":       { fast: true, attacker: true, meta: true },
+  "メタグロス":       { attacker: true, meta: true },
+  "メガメタグロス":   { attacker: true, lead: true, meta: true },
+  "ギルガルド":       { defensive: true, meta: true },
+  "ジャラランガ":     { fast: true, attacker: true, meta: true },
+  "ドリュウズ":       { fast: true, attacker: true, meta: true },
+  "メガドリュウズ":   { fast: true, attacker: true, meta: true },
+  "マニューラ":       { fast: true, attacker: true, meta: true },
+  "ガチグマ":         { attacker: true, meta: true },
+  "ブリジュラス":     { attacker: true, defensive: true, meta: true },
+  "カミツオロチ":     { defensive: true, meta: true },
+  "マスカーニャ":     { fast: true, attacker: true, meta: true },
+  "ウェーニバル":     { attacker: true, meta: true },
+  "グレンアルマ":     { fast: true, attacker: true, meta: true },
+  "メガゲンガー":     { fast: true, attacker: true, meta: true },
+  "メガルカリオ":     { fast: true, attacker: true, meta: true },
+  "メガルカリオZ":    { fast: true, attacker: true, meta: true },
+  "メガヘラクロス":   { attacker: true, meta: true },
+  "ドドゲザン":       { attacker: true, meta: true },
+  "オオニューラ":     { fast: true, attacker: true, meta: true },
+  "イダイトウ♂":     { attacker: true, meta: true },
+  "イダイトウ♀":     { fast: true, attacker: true, meta: true },
+  "ジュナイパー":     { fast: true, attacker: true, meta: true },
+  "ジュナイパー(ヒスイ)": { attacker: true, meta: true },
+  "ルカリオ":         { fast: true, attacker: true },
+  "ゲンガー":         { fast: true, attacker: true },
+  "ヘラクロス":       { attacker: true },
+  "バサギリ":         { fast: true, attacker: true },
+  "ゾロアーク":       { fast: true, attacker: true },
+  "ゾロアーク(ヒスイ)": { fast: true, attacker: true },
+  // ─── 先発向き ──────────────────────────────────────────────────────────────
+  "カバルドン":   { lead: true, defensive: true },
+  "エルフーン":   { lead: true, fast: true },
+  "コータス":     { lead: true, defensive: true },
+  "アーマーガア": { lead: true, defensive: true },
+  "ミカルゲ":     { lead: true },
+  "クレッフィ":   { lead: true },
+  "ペリッパー":   { lead: true },
+  "ユキノオー":   { lead: true },
+  "メガユキノオー": { lead: true, attacker: true },
+  // ─── 受け・耐久 ────────────────────────────────────────────────────────────
+  "ドヒドイデ":   { defensive: true },
+  "エアームド":   { defensive: true },
+  "メガエアームド": { defensive: true },
+  "ヤドラン":     { defensive: true },
+  "メガヤドラン": { defensive: true },
+  "ヤドラン(ガラル)": { defensive: true },
+  "ブリムオン":   { defensive: true },
+  "キョジオーン": { defensive: true },
+  "ヘイラッシャ": { defensive: true },
+  "バンバドロ":   { defensive: true },
+  "ヌメルゴン":   { defensive: true },
+  "ハガネール":   { defensive: true },
+  "メガハガネール": { defensive: true },
+  "グライオン":   { fast: true, defensive: true },
+  "カイロス":     { defensive: true },
+  "マリルリ":     { defensive: true },
+  "ニョロトノ":   { defensive: true },
+  "ブラッキー":   { defensive: true },
+  "エーフィ":     { fast: true },
+  "ポットデス":   { defensive: true },
+  "オーロット":   { defensive: true },
+  "リキキリン":   { defensive: true },
+  "ヤドキング":   { defensive: true },
+  // ─── 高速アタッカー ───────────────────────────────────────────────────────
+  "ファイアロー": { fast: true, attacker: true },
+  "ウインディ":   { fast: true, attacker: true },
+  "ウインディ(ヒスイ)": { fast: true, attacker: true },
+  "サンダース":   { fast: true },
+  "リーフィア":   { fast: true },
+  "スターミー":   { fast: true },
+  "メガスターミー": { fast: true, attacker: true },
+  "カットロトム": { fast: true, attacker: true },
+  "スピンロトム": { fast: true, attacker: true },
+  // ─── 物理アタッカー ───────────────────────────────────────────────────────
+  "カイリキー":   { attacker: true },
+  "ローブシン":   { attacker: true },
+  "ドサイドン":   { attacker: true },
+  "マンムー":     { attacker: true, fast: true },
+  "ガブリアスZ":  { attacker: true, fast: true, meta: true },
+  "カビゴン":     { attacker: true, defensive: true },
+  "ケンタロス":   { attacker: true, fast: true },
+  "ギャラドス":   { attacker: true },
+  "メガギャラドス": { attacker: true, meta: true },
+  "ヘルガー":     { fast: true, attacker: true },
+  "メガヘルガー": { fast: true, attacker: true },
+};
+
+function scorePokemon(name: string): { score: number; tags: PokemonTags } {
+  const norm = normalize(name);
+  const key = Object.keys(POKEMON_SCORE_TABLE).find(k => normalize(k) === norm);
+  const tags: PokemonTags = key ? POKEMON_SCORE_TABLE[key] : {};
+  let score = 1;
+  if (tags.meta) score += 3;
+  if (tags.lead) score += 3;
+  if (tags.fast) score += 2;
+  if (tags.attacker) score += 2;
+  if (tags.defensive) score += 1;
+  return { score, tags };
+}
+
+function buildReason(tags: PokemonTags): string {
+  const parts: string[] = [];
+  if (tags.meta) parts.push("メタ上位ポケモン");
+  if (tags.lead) parts.push("先発で使われやすい");
+  if (tags.fast && tags.attacker) parts.push("高速アタッカー");
+  else if (tags.fast) parts.push("素早さが高い");
+  else if (tags.attacker) parts.push("火力が高い");
+  if (tags.defensive) parts.push("耐久性能が高い");
+  return parts.length > 0 ? parts.join("・") : "汎用性が高い";
+}
+
+function predictOpponent(slots: string[]): { name: string; score: number; reason: string }[] {
+  const valid = slots.filter(s => s.trim() && isAllowed(s));
+  return valid
+    .map(name => {
+      const { score, tags } = scorePokemon(name);
+      return { name, score, reason: buildReason(tags) };
+    })
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3);
+}
 
 function emptyForm(): Omit<MyPokemon, "id"> {
   return { name: "", evH: 0, evA: 0, evB: 0, evC: 0, evD: 0, evS: 0, move1: "", move2: "", move3: "", move4: "", nature: "", item: "" };
@@ -501,7 +635,7 @@ export default function App() {
       {screen === "opponent" && (
         <OpponentScreen opponent={opponent} setOpponent={setOpponent} />
       )}
-      {screen === "result" && <ResultScreen />}
+      {screen === "result" && <ResultScreen opponent={opponent} />}
     </div>
   );
 }
@@ -797,39 +931,57 @@ function OpponentScreen({ opponent, setOpponent }: { opponent: string[]; setOppo
 }
 
 // ── ResultScreen ──────────────────────────────────────────────────────────────
-function ResultScreen() {
+const RANK_LABELS = ["1位", "2位", "3位"];
+const RANK_COLORS = ["#f5a623", "#a0a0b0", "#c07a3a"];
+
+function ResultScreen({ opponent }: { opponent: string[] }) {
+  const predictions = predictOpponent(opponent);
+  const validCount = opponent.filter(s => s.trim() && isAllowed(s)).length;
+
   return (
     <div className="screen">
-      <div className="dummy-notice">
-        この画面は現在ダミー表示です。今後、実際の相手パーティと自分のチームをもとに計算予定です。
-      </div>
-
       <div className="card">
-        <div className="result-section-title">相手が選びそうな3匹</div>
-        {DUMMY_OPPONENT.map((p, i) => (
-          <div className="result-pokemon" key={p.name} data-testid={`result-opponent-${i + 1}`}>
-            <div className={`result-rank rank-${i + 1}`}>{i + 1}</div>
-            <div className="result-info">
-              <div className="result-name">{p.name}</div>
-              <div className="result-reason">{p.reason}</div>
-            </div>
-            <div className={`result-badge badge-${p.badge}`}>脅威</div>
-          </div>
-        ))}
-      </div>
+        <div className="result-section-title">相手の選出予想</div>
 
-      <div className="card">
-        <div className="result-section-title">自分のおすすめ3匹</div>
-        {DUMMY_MYTEAM.map((p, i) => (
-          <div className="result-pokemon" key={p.name} data-testid={`result-myteam-${i + 1}`}>
-            <div className={`result-rank rank-${i + 1}`}>{i + 1}</div>
-            <div className="result-info">
-              <div className="result-name">{p.name}</div>
-              <div className="result-reason">{p.reason}</div>
-            </div>
-            <div className={`result-badge badge-${p.badge}`}>おすすめ</div>
+        {validCount === 0 ? (
+          <div className="result-empty">
+            <div className="result-empty-icon">🔍</div>
+            <div className="result-empty-text">相手のポケモンがまだ入力されていません</div>
+            <div className="result-empty-sub">「相手を入力する」からポケモンを登録してください</div>
           </div>
-        ))}
+        ) : (
+          <>
+            <div className="result-meta-note">
+              {validCount}匹のパーティから選出されやすい3匹を予測しています
+            </div>
+            {predictions.map((p, i) => (
+              <div className="result-pokemon" key={p.name} data-testid={`result-opponent-${i + 1}`}>
+                <div className="result-rank-badge" style={{ background: RANK_COLORS[i] }}>
+                  {RANK_LABELS[i]}
+                </div>
+                <div className="result-info">
+                  <div className="result-name">{p.name}</div>
+                  <div className="result-reason">{p.reason}</div>
+                </div>
+                <div className="result-score">
+                  <span className="result-score-num">{p.score}</span>
+                  <span className="result-score-label">点</span>
+                </div>
+              </div>
+            ))}
+
+            <div className="result-score-legend">
+              <div className="legend-title">スコアの内訳</div>
+              <div className="legend-grid">
+                <span className="legend-tag">メタ上位</span><span>+3</span>
+                <span className="legend-tag">先発向き</span><span>+3</span>
+                <span className="legend-tag">高速</span><span>+2</span>
+                <span className="legend-tag">高火力</span><span>+2</span>
+                <span className="legend-tag">耐久</span><span>+1</span>
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
