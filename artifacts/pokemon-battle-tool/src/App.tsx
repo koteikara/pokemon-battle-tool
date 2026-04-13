@@ -533,6 +533,65 @@ function predictOpponent(slots: string[]): { name: string; score: number; reason
     .slice(0, 3);
 }
 
+// ── My Team Recommendation ────────────────────────────────────────────────────
+function getTags(name: string): PokemonTags {
+  const norm = normalize(name);
+  const key = Object.keys(POKEMON_SCORE_TABLE).find(k => normalize(k) === norm);
+  return key ? POKEMON_SCORE_TABLE[key] : {};
+}
+
+function recommendMyTeam(
+  myTeam: MyPokemon[],
+  opponentTop3: { name: string; score: number; reason: string }[]
+): { pokemon: MyPokemon; score: number; reason: string }[] {
+  if (myTeam.length === 0 || opponentTop3.length === 0) return [];
+
+  return myTeam
+    .map(player => {
+      const pTags = getTags(player.name);
+      let score = 1;
+      let countersCount = 0;
+      const reasons: string[] = [];
+
+      for (const opp of opponentTop3) {
+        const oTags = getTags(opp.name);
+
+        // Good matchup: attacker vs defensive/lead opponent
+        const goodMatchup =
+          (pTags.attacker && (oTags.defensive || oTags.lead)) ||
+          (pTags.fast && pTags.attacker && oTags.lead);
+
+        // Resists attacks: tanky player vs offensive opponent
+        const resistsAttacks = pTags.defensive && (oTags.attacker || oTags.fast);
+
+        if (goodMatchup) {
+          score += 3;
+          countersCount++;
+        } else if (resistsAttacks) {
+          score += 2;
+        }
+      }
+
+      // Bonus: good against 2+ predicted opponents
+      if (countersCount >= 2) score += 3;
+
+      // Flat role bonuses
+      if (pTags.fast && pTags.attacker) score += 2;
+      if (pTags.defensive) score += 1;
+
+      // Build reason string
+      if (countersCount >= 2) reasons.push("相手の上位3匹に強く、通りが良いです");
+      else if (countersCount === 1) reasons.push("相手の主力に有利を取れる");
+      if (pTags.fast && pTags.attacker) reasons.push("高速アタッカー");
+      if (pTags.defensive) reasons.push("耐久で粘れる");
+      if (reasons.length === 0) reasons.push("汎用性が高い");
+
+      return { pokemon: player, score, reason: reasons.join("・") };
+    })
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3);
+}
+
 function emptyForm(): Omit<MyPokemon, "id"> {
   return { name: "", evH: 0, evA: 0, evB: 0, evC: 0, evD: 0, evS: 0, move1: "", move2: "", move3: "", move4: "", nature: "", item: "" };
 }
@@ -635,7 +694,7 @@ export default function App() {
       {screen === "opponent" && (
         <OpponentScreen opponent={opponent} setOpponent={setOpponent} />
       )}
-      {screen === "result" && <ResultScreen opponent={opponent} />}
+      {screen === "result" && <ResultScreen opponent={opponent} myTeam={myTeam} />}
     </div>
   );
 }
@@ -934,12 +993,15 @@ function OpponentScreen({ opponent, setOpponent }: { opponent: string[]; setOppo
 const RANK_LABELS = ["1位", "2位", "3位"];
 const RANK_COLORS = ["#f5a623", "#a0a0b0", "#c07a3a"];
 
-function ResultScreen({ opponent }: { opponent: string[] }) {
+function ResultScreen({ opponent, myTeam }: { opponent: string[]; myTeam: MyPokemon[] }) {
   const predictions = predictOpponent(opponent);
   const validCount = opponent.filter(s => s.trim() && isAllowed(s)).length;
+  const recommendations = recommendMyTeam(myTeam, predictions);
 
   return (
     <div className="screen">
+
+      {/* ── 相手の選出予想 ───────────────────────────────────────────── */}
       <div className="card">
         <div className="result-section-title">相手の選出予想</div>
 
@@ -977,6 +1039,63 @@ function ResultScreen({ opponent }: { opponent: string[] }) {
                 <span className="legend-tag">先発向き</span><span>+3</span>
                 <span className="legend-tag">高速</span><span>+2</span>
                 <span className="legend-tag">高火力</span><span>+2</span>
+                <span className="legend-tag">耐久</span><span>+1</span>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* ── 自分のおすすめ選出 ──────────────────────────────────────── */}
+      <div className="card">
+        <div className="result-section-title result-section-title--green">自分のおすすめ選出</div>
+
+        {myTeam.length === 0 ? (
+          <div className="result-empty">
+            <div className="result-empty-icon">📋</div>
+            <div className="result-empty-text">自分のポケモンが登録されていません</div>
+            <div className="result-empty-sub">「自分のポケモン登録」からチームを登録してください</div>
+          </div>
+        ) : validCount === 0 ? (
+          <div className="result-empty">
+            <div className="result-empty-icon">⚠️</div>
+            <div className="result-empty-text">相手のポケモンを入力してください</div>
+            <div className="result-empty-sub">相手を入力すると選出おすすめが表示されます</div>
+          </div>
+        ) : (
+          <>
+            <div className="result-meta-note">
+              登録済み{myTeam.length}匹の中から最も通りが良い3匹を提案しています
+            </div>
+            {recommendations.map((r, i) => (
+              <div className="result-pokemon" key={r.pokemon.id} data-testid={`result-myteam-${i + 1}`}>
+                <div className="result-rank-badge result-rank-badge--green" style={{ background: RANK_COLORS[i] }}>
+                  {RANK_LABELS[i]}
+                </div>
+                <div className="result-info">
+                  <div className="result-name">{r.pokemon.name}</div>
+                  <div className="result-reason">{r.reason}</div>
+                  {(r.pokemon.nature || r.pokemon.item) && (
+                    <div className="result-tags">
+                      {r.pokemon.nature && <span className="result-tag">{r.pokemon.nature}</span>}
+                      {r.pokemon.item && <span className="result-tag">{r.pokemon.item}</span>}
+                    </div>
+                  )}
+                </div>
+                <div className="result-score">
+                  <span className="result-score-num result-score-num--green">{r.score}</span>
+                  <span className="result-score-label">点</span>
+                </div>
+              </div>
+            ))}
+
+            <div className="result-score-legend">
+              <div className="legend-title">スコアの内訳</div>
+              <div className="legend-grid">
+                <span className="legend-tag">有利対面</span><span>+3</span>
+                <span className="legend-tag">2匹以上に強い</span><span>+3</span>
+                <span className="legend-tag">攻撃耐性</span><span>+2</span>
+                <span className="legend-tag">高速火力</span><span>+2</span>
                 <span className="legend-tag">耐久</span><span>+1</span>
               </div>
             </div>

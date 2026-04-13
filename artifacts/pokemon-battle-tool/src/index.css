@@ -441,6 +441,11 @@ body {
   margin-bottom: 14px;
 }
 
+.result-section-title--green {
+  border-bottom-color: #d4f0e0;
+  color: #1a6e42;
+}
+
 .result-meta-note {
   font-size: 12px;
   color: #999;
@@ -509,6 +514,26 @@ body {
   font-size: 11px;
   color: #bbb;
   font-weight: 500;
+}
+
+.result-score-num--green {
+  color: #19a355;
+}
+
+.result-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 5px;
+}
+
+.result-tag {
+  background: #f0f7f3;
+  color: #1a6e42;
+  border-radius: 6px;
+  padding: 2px 7px;
+  font-size: 11px;
+  font-weight: 600;
 }
 
 /* Score legend */
