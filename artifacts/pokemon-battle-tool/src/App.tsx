@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 type Screen = "home" | "register" | "opponent" | "result";
 
@@ -14,6 +14,138 @@ interface MyPokemon {
   item: string;
 }
 
+// ── Allowed Pokémon (カタカナ) ───────────────────────────────────────────────
+export const ALLOWED_POKEMON: string[] = [
+  "ガブリアス",
+  "カイリュー",
+  "サーフゴー",
+  "テツノカイナ",
+  "ランドロス",
+  "ウーラオス",
+  "ミミッキュ",
+  "ハバタクカミ",
+  "キョジオーン",
+  "パオジアン",
+];
+
+// ひらがな → カタカナ 変換
+function toKatakana(str: string): string {
+  return str.replace(/[\u3041-\u3096]/g, ch =>
+    String.fromCharCode(ch.charCodeAt(0) + 0x60)
+  );
+}
+
+// 正規化して比較（ひらがな・カタカナ両対応）
+function normalize(str: string): string {
+  return toKatakana(str.trim());
+}
+
+function isAllowed(name: string): boolean {
+  if (!name.trim()) return false;
+  const n = normalize(name);
+  return ALLOWED_POKEMON.some(p => normalize(p) === n);
+}
+
+function getSuggestions(input: string): string[] {
+  if (!input.trim()) return [];
+  const n = normalize(input);
+  return ALLOWED_POKEMON.filter(p => normalize(p).includes(n));
+}
+
+// ── PokemonInput ─────────────────────────────────────────────────────────────
+interface PokemonInputProps {
+  value: string;
+  onChange: (val: string) => void;
+  placeholder?: string;
+  testId?: string;
+  style?: React.CSSProperties;
+}
+
+function PokemonInput({ value, onChange, placeholder = "例: ガブリアス", testId, style }: PokemonInputProps) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const suggestions = getSuggestions(value);
+  const isEmpty = !value.trim();
+  const valid = isAllowed(value);
+  const showError = !isEmpty && !valid;
+  const showOk = !isEmpty && valid;
+
+  function pick(name: string) {
+    onChange(name);
+    setOpen(false);
+  }
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  // Highlight matching part of suggestion
+  function highlight(name: string) {
+    const n = normalize(name);
+    const q = normalize(value);
+    const idx = n.indexOf(q);
+    if (idx === -1 || !q) return <span>{name}</span>;
+    return (
+      <span>
+        {name.slice(0, idx)}
+        <span className="suggestion-highlight">{name.slice(idx, idx + q.length)}</span>
+        {name.slice(idx + q.length)}
+      </span>
+    );
+  }
+
+  return (
+    <div className="pokemon-input-wrap" ref={wrapRef}>
+      <input
+        className={`field-input${showError ? " field-input-error" : ""}`}
+        style={{ marginBottom: 0, ...style }}
+        placeholder={placeholder}
+        value={value}
+        data-testid={testId}
+        autoComplete="off"
+        onChange={e => {
+          onChange(e.target.value);
+          setOpen(true);
+        }}
+        onFocus={() => { if (value.trim()) setOpen(true); }}
+      />
+      {open && suggestions.length > 0 && (
+        <div className="suggestions-list" role="listbox">
+          {suggestions.map(s => (
+            <div
+              key={s}
+              className="suggestion-item"
+              role="option"
+              onMouseDown={() => pick(s)}
+              data-testid={`suggestion-${s}`}
+            >
+              {highlight(s)}
+            </div>
+          ))}
+        </div>
+      )}
+      {showError && (
+        <div className="field-error-msg" data-testid="error-invalid-pokemon">
+          このポケモンは使えません
+        </div>
+      )}
+      {showOk && (
+        <div className="field-ok-msg" data-testid="msg-valid-pokemon">
+          OK
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Constants ─────────────────────────────────────────────────────────────────
 const NATURES = [
   "がんばりや", "さみしがり", "ゆうかん", "いじっぱり", "やんちゃ",
   "ずぶとい", "てれや", "のんき", "わんぱく", "のうてんき",
@@ -38,6 +170,7 @@ function emptyForm(): Omit<MyPokemon, "id"> {
   return { name: "", evs: "", move1: "", move2: "", move3: "", move4: "", nature: "", item: "" };
 }
 
+// ── App ───────────────────────────────────────────────────────────────────────
 export default function App() {
   const [screen, setScreen] = useState<Screen>("home");
   const [myTeam, setMyTeam] = useState<MyPokemon[]>(() => {
@@ -64,7 +197,7 @@ export default function App() {
   }, [opponent]);
 
   function saveForm() {
-    if (!form.name.trim()) return;
+    if (!form.name.trim() || !isAllowed(form.name)) return;
     if (editingId) {
       setMyTeam(prev => prev.map(p => p.id === editingId ? { ...form, id: editingId } : p));
       setEditingId(null);
@@ -127,6 +260,7 @@ export default function App() {
   );
 }
 
+// ── HomeScreen ────────────────────────────────────────────────────────────────
 function HomeScreen({ onNavigate }: { onNavigate: (s: Screen) => void }) {
   return (
     <div>
@@ -172,10 +306,25 @@ function HomeScreen({ onNavigate }: { onNavigate: (s: Screen) => void }) {
           <span className="home-btn-arrow">›</span>
         </button>
       </div>
+
+      {/* Allowed Pokémon list */}
+      <div style={{ padding: "0 16px 32px" }}>
+        <div className="card">
+          <div className="card-title">使用可能なポケモン（{ALLOWED_POKEMON.length}匹）</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+            {ALLOWED_POKEMON.map(p => (
+              <span key={p} className="pokemon-card-tag" style={{ fontSize: 14, padding: "5px 12px" }} data-testid={`allowed-${p}`}>
+                {p}
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
 
+// ── RegisterScreen ────────────────────────────────────────────────────────────
 interface RegisterProps {
   form: Omit<MyPokemon, "id">;
   setForm: (f: Omit<MyPokemon, "id">) => void;
@@ -193,6 +342,8 @@ function RegisterScreen({ form, setForm, myTeam, onSave, onDelete, onEdit, onCan
       setForm({ ...form, [key]: e.target.value });
   }
 
+  const canSave = form.name.trim() !== "" && isAllowed(form.name);
+
   return (
     <div className="screen">
       <div className="card">
@@ -200,12 +351,11 @@ function RegisterScreen({ form, setForm, myTeam, onSave, onDelete, onEdit, onCan
 
         <div className="field">
           <label className="field-label">ポケモン名</label>
-          <input
-            className="field-input"
-            placeholder="例: ガブリアス"
+          <PokemonInput
             value={form.name}
-            onChange={f("name")}
-            data-testid="input-pokemon-name"
+            onChange={val => setForm({ ...form, name: val })}
+            placeholder="例: ガブリアス"
+            testId="input-pokemon-name"
           />
         </div>
 
@@ -253,8 +403,8 @@ function RegisterScreen({ form, setForm, myTeam, onSave, onDelete, onEdit, onCan
           <button
             className="btn-primary"
             onClick={onSave}
-            disabled={!form.name.trim()}
-            style={{ opacity: form.name.trim() ? 1 : 0.5 }}
+            disabled={!canSave}
+            style={{ opacity: canSave ? 1 : 0.4 }}
             data-testid="btn-save"
           >
             {editingId ? "更新する" : "保存する"}
@@ -302,6 +452,7 @@ function RegisterScreen({ form, setForm, myTeam, onSave, onDelete, onEdit, onCan
   );
 }
 
+// ── OpponentScreen ────────────────────────────────────────────────────────────
 function OpponentScreen({ opponent, setOpponent }: { opponent: string[]; setOpponent: (o: string[]) => void }) {
   function update(i: number, val: string) {
     const next = [...opponent];
@@ -314,16 +465,18 @@ function OpponentScreen({ opponent, setOpponent }: { opponent: string[]; setOppo
       <div className="card">
         <div className="card-title">相手のパーティ（最大6匹）</div>
         {opponent.map((name, i) => (
-          <div className="field opponent-slot" key={i}>
-            <div className="slot-num">{i + 1}</div>
-            <input
-              className="field-input"
-              style={{ marginBottom: 0 }}
-              placeholder={`ポケモン ${i + 1}`}
-              value={name}
-              onChange={e => update(i, e.target.value)}
-              data-testid={`input-opponent-${i + 1}`}
-            />
+          <div className="field" key={i} style={{ marginBottom: i < 5 ? 14 : 0 }}>
+            <div className="opponent-slot" style={{ alignItems: "flex-start", gap: 10 }}>
+              <div className="slot-num" style={{ marginTop: 12, flexShrink: 0 }}>{i + 1}</div>
+              <div style={{ flex: 1 }}>
+                <PokemonInput
+                  value={name}
+                  onChange={val => update(i, val)}
+                  placeholder={`ポケモン ${i + 1}`}
+                  testId={`input-opponent-${i + 1}`}
+                />
+              </div>
+            </div>
           </div>
         ))}
       </div>
@@ -332,6 +485,7 @@ function OpponentScreen({ opponent, setOpponent }: { opponent: string[]; setOppo
   );
 }
 
+// ── ResultScreen ──────────────────────────────────────────────────────────────
 function ResultScreen() {
   return (
     <div className="screen">
