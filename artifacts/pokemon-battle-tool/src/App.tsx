@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 
-type Screen = "home" | "register" | "opponent" | "result";
+type Screen = "register" | "battle";
 
 interface MyPokemon {
   id: string;
@@ -747,7 +747,7 @@ function formatEVs(p: MyPokemon): string {
 
 // ── App ───────────────────────────────────────────────────────────────────────
 export default function App() {
-  const [screen, setScreen] = useState<Screen>("home");
+  const [screen, setScreen] = useState<Screen>("register");
   const [myTeam, setMyTeam] = useState<MyPokemon[]>(() => {
     try {
       const saved = localStorage.getItem("myTeam");
@@ -803,25 +803,28 @@ export default function App() {
     setForm(emptyForm());
   }
 
-  const screenTitles: Record<Screen, string> = {
-    home: "",
-    register: "自分のポケモン登録",
-    opponent: "相手を入力する",
-    result: "結果を見る",
-  };
-
   return (
     <div id="app-root">
-      {screen !== "home" && (
-        <header className="header">
-          <button className="header-back" onClick={() => { setScreen("home"); setEditingId(null); setForm(emptyForm()); }} data-testid="btn-back">
-            ←
-          </button>
-          <span className="header-title">{screenTitles[screen]}</span>
-        </header>
-      )}
+      {/* ── Tab Bar ─────────────────────────────────────────────────── */}
+      <nav className="tab-bar">
+        <button
+          className={`tab-btn${screen === "register" ? " tab-btn--active" : ""}`}
+          onClick={() => { setScreen("register"); cancelEdit(); }}
+          data-testid="tab-register"
+        >
+          <span className="tab-icon">📋</span>
+          <span className="tab-label">自分のポケモン登録</span>
+        </button>
+        <button
+          className={`tab-btn${screen === "battle" ? " tab-btn--active" : ""}`}
+          onClick={() => setScreen("battle")}
+          data-testid="tab-battle"
+        >
+          <span className="tab-icon">⚔️</span>
+          <span className="tab-label">相手・選出予測</span>
+        </button>
+      </nav>
 
-      {screen === "home" && <HomeScreen onNavigate={setScreen} />}
       {screen === "register" && (
         <RegisterScreen
           form={form}
@@ -834,75 +837,9 @@ export default function App() {
           editingId={editingId}
         />
       )}
-      {screen === "opponent" && (
-        <OpponentScreen opponent={opponent} setOpponent={setOpponent} />
+      {screen === "battle" && (
+        <BattleScreen opponent={opponent} setOpponent={setOpponent} myTeam={myTeam} />
       )}
-      {screen === "result" && <ResultScreen opponent={opponent} myTeam={myTeam} />}
-    </div>
-  );
-}
-
-// ── HomeScreen ────────────────────────────────────────────────────────────────
-function HomeScreen({ onNavigate }: { onNavigate: (s: Screen) => void }) {
-  return (
-    <div>
-      <div className="home-hero">
-        <div className="home-logo">
-          <div className="home-logo-inner" />
-        </div>
-        <div className="home-title">ポケモン対戦支援ツール</div>
-        <div className="home-sub">チーム管理・相手読み・選出サポート</div>
-      </div>
-
-      <div className="home-buttons">
-        <button className="home-btn" onClick={() => onNavigate("register")} data-testid="btn-register">
-          <div className="home-btn-icon" style={{ background: "#fff0f1" }}>
-            <span style={{ fontSize: 22 }}>🗂</span>
-          </div>
-          <div className="home-btn-text">
-            <div className="home-btn-label">自分のポケモン登録</div>
-            <div className="home-btn-desc">技・努力値・性格を登録する</div>
-          </div>
-          <span className="home-btn-arrow">›</span>
-        </button>
-
-        <button className="home-btn" onClick={() => onNavigate("opponent")} data-testid="btn-opponent">
-          <div className="home-btn-icon" style={{ background: "#f0f4ff" }}>
-            <span style={{ fontSize: 22 }}>🔍</span>
-          </div>
-          <div className="home-btn-text">
-            <div className="home-btn-label">相手を入力する</div>
-            <div className="home-btn-desc">相手のポケモン6匹を入力</div>
-          </div>
-          <span className="home-btn-arrow">›</span>
-        </button>
-
-        <button className="home-btn" onClick={() => onNavigate("result")} data-testid="btn-result">
-          <div className="home-btn-icon" style={{ background: "#f0fff4" }}>
-            <span style={{ fontSize: 22 }}>⚔️</span>
-          </div>
-          <div className="home-btn-text">
-            <div className="home-btn-label">結果を見る</div>
-            <div className="home-btn-desc">相手選出予測・おすすめ選出を表示</div>
-          </div>
-          <span className="home-btn-arrow">›</span>
-        </button>
-      </div>
-
-      {/* Allowed Pokémon info */}
-      <div style={{ padding: "0 16px 32px" }}>
-        <div className="card">
-          <div className="card-title">使用可能なポケモン</div>
-          <div style={{ fontSize: 15, color: "#444", lineHeight: 1.6 }}>
-            ポケモンチャンピオンズの公式リストより
-            <span style={{ fontWeight: 700, color: "#cc2233" }}> {ALLOWED_POKEMON.length}匹 </span>
-            が登録されています。
-          </div>
-          <div style={{ marginTop: 8, fontSize: 13, color: "#999" }}>
-            ポケモン名を入力すると候補が表示されます。ひらがなでも入力できます。
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
@@ -1096,8 +1033,21 @@ function RegisterScreen({ form, setForm, myTeam, onSave, onDelete, onEdit, onCan
   );
 }
 
-// ── OpponentScreen ────────────────────────────────────────────────────────────
-function OpponentScreen({ opponent, setOpponent }: { opponent: string[]; setOpponent: (o: string[]) => void }) {
+// ── BattleScreen ──────────────────────────────────────────────────────────────
+const RANK_LABELS = ["1位", "2位", "3位"];
+const RANK_COLORS = ["#f5a623", "#a0a0b0", "#c07a3a"];
+
+function BattleScreen({
+  opponent, setOpponent, myTeam,
+}: {
+  opponent: string[];
+  setOpponent: (o: string[]) => void;
+  myTeam: MyPokemon[];
+}) {
+  const predictions = predictOpponent(opponent);
+  const validCount = opponent.filter(s => s.trim() && isAllowed(s)).length;
+  const recommendations = recommendMyTeam(myTeam, predictions);
+
   function update(i: number, val: string) {
     const next = [...opponent];
     next[i] = val;
@@ -1106,6 +1056,8 @@ function OpponentScreen({ opponent, setOpponent }: { opponent: string[]; setOppo
 
   return (
     <div className="screen">
+
+      {/* ── 相手のパーティ入力 ──────────────────────────────────────── */}
       <div className="card">
         <div className="card-title">相手のパーティ（最大6匹）</div>
         {opponent.map((name, i) => (
@@ -1123,33 +1075,19 @@ function OpponentScreen({ opponent, setOpponent }: { opponent: string[]; setOppo
             </div>
           </div>
         ))}
+        <p style={{ fontSize: 12, color: "#aaa", textAlign: "center", marginTop: 12 }}>
+          入力内容は自動で保存されます
+        </p>
       </div>
-      <p style={{ fontSize: 12, color: "#aaa", textAlign: "center" }}>入力内容は自動で保存されます</p>
-    </div>
-  );
-}
 
-// ── ResultScreen ──────────────────────────────────────────────────────────────
-const RANK_LABELS = ["1位", "2位", "3位"];
-const RANK_COLORS = ["#f5a623", "#a0a0b0", "#c07a3a"];
-
-function ResultScreen({ opponent, myTeam }: { opponent: string[]; myTeam: MyPokemon[] }) {
-  const predictions = predictOpponent(opponent);
-  const validCount = opponent.filter(s => s.trim() && isAllowed(s)).length;
-  const recommendations = recommendMyTeam(myTeam, predictions);
-
-  return (
-    <div className="screen">
-
-      {/* ── 相手の選出予想 ───────────────────────────────────────────── */}
+      {/* ── 相手の選出予想 ──────────────────────────────────────────── */}
       <div className="card">
         <div className="result-section-title">相手の選出予想</div>
-
         {validCount === 0 ? (
           <div className="result-empty">
             <div className="result-empty-icon">🔍</div>
-            <div className="result-empty-text">相手のポケモンがまだ入力されていません</div>
-            <div className="result-empty-sub">「相手を入力する」からポケモンを登録してください</div>
+            <div className="result-empty-text">相手のポケモンを入力してください</div>
+            <div className="result-empty-sub">入力するとリアルタイムで予測が表示されます</div>
           </div>
         ) : (
           <>
@@ -1171,17 +1109,6 @@ function ResultScreen({ opponent, myTeam }: { opponent: string[]; myTeam: MyPoke
                 </div>
               </div>
             ))}
-
-            <div className="result-score-legend">
-              <div className="legend-title">スコアの内訳</div>
-              <div className="legend-grid">
-                <span className="legend-tag">メタ上位</span><span>+3</span>
-                <span className="legend-tag">先発向き</span><span>+3</span>
-                <span className="legend-tag">高速</span><span>+2</span>
-                <span className="legend-tag">高火力</span><span>+2</span>
-                <span className="legend-tag">耐久</span><span>+1</span>
-              </div>
-            </div>
           </>
         )}
       </div>
@@ -1189,18 +1116,17 @@ function ResultScreen({ opponent, myTeam }: { opponent: string[]; myTeam: MyPoke
       {/* ── 自分のおすすめ選出 ──────────────────────────────────────── */}
       <div className="card">
         <div className="result-section-title result-section-title--green">自分のおすすめ選出</div>
-
         {myTeam.length === 0 ? (
           <div className="result-empty">
             <div className="result-empty-icon">📋</div>
             <div className="result-empty-text">自分のポケモンが登録されていません</div>
-            <div className="result-empty-sub">「自分のポケモン登録」からチームを登録してください</div>
+            <div className="result-empty-sub">「自分のポケモン登録」タブからチームを登録してください</div>
           </div>
         ) : validCount === 0 ? (
           <div className="result-empty">
-            <div className="result-empty-icon">⚠️</div>
+            <div className="result-empty-icon">⬆️</div>
             <div className="result-empty-text">相手のポケモンを入力してください</div>
-            <div className="result-empty-sub">相手を入力すると選出おすすめが表示されます</div>
+            <div className="result-empty-sub">入力すると最適な選出が自動で表示されます</div>
           </div>
         ) : (
           <>
@@ -1209,7 +1135,7 @@ function ResultScreen({ opponent, myTeam }: { opponent: string[]; myTeam: MyPoke
             </div>
             {recommendations.map((r, i) => (
               <div className="result-pokemon" key={r.pokemon.id} data-testid={`result-myteam-${i + 1}`}>
-                <div className="result-rank-badge result-rank-badge--green" style={{ background: RANK_COLORS[i] }}>
+                <div className="result-rank-badge" style={{ background: RANK_COLORS[i] }}>
                   {RANK_LABELS[i]}
                 </div>
                 <div className="result-info">
@@ -1228,7 +1154,6 @@ function ResultScreen({ opponent, myTeam }: { opponent: string[]; myTeam: MyPoke
                 </div>
               </div>
             ))}
-
             <div className="result-score-legend">
               <div className="legend-title">スコアの内訳</div>
               <div className="legend-grid">
