@@ -259,7 +259,7 @@ const ALLOWED_POKEMON: string[] = [
   "ヤバソチャ",
   "ブリジュラス",
   "カミツオロチ",
-];
+].filter(name => !name.startsWith("メガ"));
 
 // ひらがな → カタカナ 変換
 function toKatakana(str: string): string {
@@ -1157,11 +1157,11 @@ function BattleScreen({
             <div className="result-score-legend">
               <div className="legend-title">スコアの内訳</div>
               <div className="legend-grid">
-                <span className="legend-tag">有利対面</span><span>+3</span>
-                <span className="legend-tag">2匹以上に強い</span><span>+3</span>
-                <span className="legend-tag">攻撃耐性</span><span>+2</span>
-                <span className="legend-tag">高速火力</span><span>+2</span>
-                <span className="legend-tag">耐久</span><span>+1</span>
+                <div className="legend-item"><span className="legend-tag">有利対面</span><span className="legend-score">+3</span></div>
+                <div className="legend-item"><span className="legend-tag">2匹以上に強い</span><span className="legend-score">+3</span></div>
+                <div className="legend-item"><span className="legend-tag">攻撃耐性</span><span className="legend-score">+2</span></div>
+                <div className="legend-item"><span className="legend-tag">高速火力</span><span className="legend-score">+2</span></div>
+                <div className="legend-item"><span className="legend-tag">耐久</span><span className="legend-score">+1</span></div>
               </div>
             </div>
           </>
