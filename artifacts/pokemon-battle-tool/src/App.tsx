@@ -379,6 +379,138 @@ function PokemonInput({ value, onChange, placeholder = "例: ガブリアス", t
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
+// ── Item List ──────────────────────────────────────────────────────────
+const ITEMS: string[] = [
+  "いのちのたま", "こだわりハチマキ", "こだわりメガネ", "こだわりスカーフ",
+  "きあいのタスキ", "たべのこし", "オボンのみ", "ラムのみ", "カゴのみ",
+  "チイラのみ", "ヤタピのみ", "リュガのみ", "ズアのみ", "サンのみ",
+  "スターのみ", "ジャポのみ", "レンブのみ", "アッキのみ", "タラプのみ",
+  "ひかりのこな", "ピントレンズ", "するどいツメ", "するどいキバ",
+  "こうかくレンズ", "フォーカスレンズ", "しんかのきせき", "とつげきチョッキ",
+  "ゴツゴツメット", "じゃくてんほけん", "レッドカード", "きあいのハチマキ",
+  "おうじゃのしるし", "のどスプレー", "ルームサービス", "メンタルハーブ",
+  "パワフルハーブ", "しろいハーブ", "きゅうこん", "だっしゅつボタン",
+  "だっしゅつパック", "くろいヘドロ", "かえんだま", "どくどくだま",
+  "ぼうじんゴーグル", "あつぞこブーツ", "いかさまダイス", "パンチグローブ",
+  "ものしりメガネ", "ちからのハチマキ", "たつじんのおび",
+  "ノーマルジュエル", "ほのおのジュエル", "みずのジュエル", "でんきのジュエル",
+  "くさのジュエル", "こおりのジュエル", "かくとうのジュエル", "どくのジュエル",
+  "じめんのジュエル", "ひこうのジュエル", "エスパーのジュエル", "むしのジュエル",
+  "いわのジュエル", "ゴーストのジュエル", "ドラゴンのジュエル", "あくのジュエル",
+  "はがねのジュエル", "フェアリージュエル",
+  "ノーマルZ", "ほのおZ", "みずZ", "でんきZ", "くさZ", "こおりZ",
+  "かくとうZ", "どくZ", "じめんZ", "ひこうZ", "エスパーZ", "むしZ",
+  "いわZ", "ゴーストZ", "ドラゴンZ", "あくZ", "はがねZ", "フェアリーZ",
+];
+
+// ── ItemPicker ────────────────────────────────────────────────────────────────
+interface ItemPickerProps {
+  value: string;
+  onChange: (val: string) => void;
+}
+
+function ItemPicker({ value, onChange }: ItemPickerProps) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  const filtered = query.trim()
+    ? ITEMS.filter(it => toKatakana(it).includes(toKatakana(query.trim())))
+    : ITEMS;
+
+  function select(item: string) {
+    onChange(item);
+    setOpen(false);
+    setQuery("");
+  }
+
+  function clearValue(e: React.MouseEvent) {
+    e.stopPropagation();
+    onChange("");
+  }
+
+  function closeModal() {
+    setOpen(false);
+    setQuery("");
+  }
+
+  useEffect(() => {
+    if (open) {
+      const t = setTimeout(() => searchRef.current?.focus(), 80);
+      return () => clearTimeout(t);
+    }
+  }, [open]);
+
+  // Prevent body scroll when modal open
+  useEffect(() => {
+    document.body.style.overflow = open ? "hidden" : "";
+    return () => { document.body.style.overflow = ""; };
+  }, [open]);
+
+  return (
+    <>
+      <button
+        type="button"
+        className={`item-picker-trigger${!value ? " item-picker-trigger--empty" : ""}`}
+        onClick={() => setOpen(true)}
+        data-testid="item-picker-trigger"
+      >
+        <span className="item-picker-value">{value || "持ち物を選択（タップして選ぶ）"}</span>
+        {value ? (
+          <span className="item-picker-clear-btn" onClick={clearValue} role="button" aria-label="クリア">✕</span>
+        ) : (
+          <span className="item-picker-arrow">›</span>
+        )}
+      </button>
+
+      {open && (
+        <div className="item-picker-backdrop" onClick={closeModal}>
+          <div className="item-picker-sheet" onClick={e => e.stopPropagation()}>
+            <div className="item-picker-handle" />
+            <div className="item-picker-header">
+              <span className="item-picker-title">持ち物を選ぶ</span>
+              <button className="item-picker-close" onClick={closeModal} aria-label="閉じる">✕</button>
+            </div>
+            <div className="item-picker-search-wrap">
+              <span className="item-picker-search-icon">🔍</span>
+              <input
+                ref={searchRef}
+                className="item-picker-search"
+                placeholder="検索..."
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+                autoComplete="off"
+              />
+              {query && (
+                <button className="item-picker-search-clear" onClick={() => setQuery("")}>✕</button>
+              )}
+            </div>
+            <div className="item-picker-list" role="listbox">
+              {filtered.length === 0 ? (
+                <div className="item-picker-empty">「{query}」は見つかりません</div>
+              ) : (
+                filtered.map(item => (
+                  <div
+                    key={item}
+                    className={`item-picker-option${item === value ? " item-picker-option--selected" : ""}`}
+                    role="option"
+                    aria-selected={item === value}
+                    onClick={() => select(item)}
+                    data-testid={`item-option-${item}`}
+                  >
+                    <span>{item}</span>
+                    {item === value && <span className="item-picker-check">✓</span>}
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 const NATURES = [
   "がんばりや", "さみしがり", "ゆうかん", "いじっぱり", "やんちゃ",
   "ずぶとい", "てれや", "のんき", "わんぱく", "のうてんき",
@@ -894,12 +1026,9 @@ function RegisterScreen({ form, setForm, myTeam, onSave, onDelete, onEdit, onCan
 
         <div className="field">
           <label className="field-label">持ち物</label>
-          <input
-            className="field-input"
-            placeholder="例: こだわりスカーフ"
+          <ItemPicker
             value={form.item}
-            onChange={f("item")}
-            data-testid="input-item"
+            onChange={val => setForm({ ...form, item: val })}
           />
         </div>
 
