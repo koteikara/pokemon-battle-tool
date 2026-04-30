@@ -19,6 +19,11 @@ interface MyPokemon {
   move4: string;
   nature: string;
   item: string;
+  ability: string;
+  teraType: string;
+  roleTags: string[];
+  pickPriority: "高" | "中" | "低" | "";
+  memo: string;
 }
 
 // ── Allowed Pokémon (カタカナ) ───────────────────────────────────────────────
@@ -261,7 +266,10 @@ const ALLOWED_POKEMON: string[] = [
   "ヤバソチャ",
   "ブリジュラス",
   "カミツオロチ",
-].filter(name => !name.startsWith("メガ"));
+].filter(name => !(name.startsWith("メガ") && name !== "メガニウム"));
+
+const TERA_TYPES = ["ノーマル","ほのお","みず","でんき","くさ","こおり","かくとう","どく","じめん","ひこう","エスパー","むし","いわ","ゴースト","ドラゴン","あく","はがね","フェアリー"];
+const ROLE_TAGS = ["物理アタッカー","特殊アタッカー","耐久","サポート","先発向き","詰め要員","クッション"];
 
 // ひらがな → カタカナ 変換
 function toKatakana(str: string): string {
@@ -667,12 +675,17 @@ function buildReason(tags: PokemonTags): string {
   return parts.length > 0 ? parts.join("・") : "汎用性が高い";
 }
 
-function predictOpponent(slots: string[]): { name: string; score: number; reason: string }[] {
+type OppPrediction = { name: string; score: number; reason: string; role: string; item: string; moves: string; caution: string };
+function predictOpponent(slots: string[]): OppPrediction[] {
   const valid = slots.filter(s => s.trim() && isAllowed(s));
   return valid
     .map(name => {
       const { score, tags } = scorePokemon(name);
-      return { name, score, reason: buildReason(tags) };
+      const role = tags.lead ? "先発・展開役" : tags.defensive ? "耐久・受け" : tags.fast && tags.attacker ? "高速アタッカー" : "汎用アタッカー";
+      const item = tags.lead ? "きあいのタスキ/補助系" : tags.defensive ? "たべのこし/オボンのみ" : "こだわり系/火力増強";
+      const moves = tags.lead ? "ステロ・ちょうはつ・とんぼ返り" : tags.defensive ? "回復技・状態異常技" : "高火力一致技・補完技";
+      const caution = tags.fast ? "上から縛られやすい" : tags.attacker ? "受け出ししにくい火力に注意" : "サイクル戦で削られないよう注意";
+      return { name, score, reason: buildReason(tags), role, item, moves, caution };
     })
     .sort((a, b) => b.score - a.score)
     .slice(0, 3);
@@ -723,12 +736,18 @@ function recommendMyTeam(
       // Flat role bonuses
       if (pTags.fast && pTags.attacker) score += 2;
       if (pTags.defensive) score += 1;
+      if (player.pickPriority === "高") score += 2;
+      if (player.pickPriority === "中") score += 1;
+      if (player.roleTags.length >= 2) score += 1;
+      if ((player.item.includes("こだわり") && [player.move1, player.move2, player.move3, player.move4].filter(Boolean).length >= 3) || player.item.includes("たべのこし")) score += 1;
 
       // Build reason string
       if (countersCount >= 2) reasons.push("相手の上位3匹に強く、通りが良いです");
       else if (countersCount === 1) reasons.push("相手の主力に有利を取れる");
       if (pTags.fast && pTags.attacker) reasons.push("高速アタッカー");
       if (pTags.defensive) reasons.push("耐久で粘れる");
+      if (player.roleTags.length >= 2) reasons.push("役割補完がしやすい");
+      if (player.pickPriority) reasons.push(`選出優先度:${player.pickPriority}`);
       if (reasons.length === 0) reasons.push("汎用性が高い");
 
       return { pokemon: player, score, reason: reasons.join("・") };
@@ -738,7 +757,7 @@ function recommendMyTeam(
 }
 
 function emptyForm(): Omit<MyPokemon, "id"> {
-  return { name: "", evH: 0, evA: 0, evB: 0, evC: 0, evD: 0, evS: 0, move1: "", move2: "", move3: "", move4: "", nature: "", item: "" };
+  return { name: "", evH: 0, evA: 0, evB: 0, evC: 0, evD: 0, evS: 0, move1: "", move2: "", move3: "", move4: "", nature: "", item: "", ability: "", teraType: "", roleTags: [], pickPriority: "", memo: "" };
 }
 
 function formatEVs(p: MyPokemon): string {
@@ -754,13 +773,14 @@ export default function App() {
     try {
       const saved = localStorage.getItem("myTeam");
       if (!saved) return [];
-      const parsed = JSON.parse(saved) as MyPokemon[];
+      const parsed = JSON.parse(saved) as Partial<MyPokemon>[];
       // Migrate old format that used evs: string
       return parsed.map(p => ({
         ...p,
         evH: p.evH ?? 0, evA: p.evA ?? 0, evB: p.evB ?? 0,
         evC: p.evC ?? 0, evD: p.evD ?? 0, evS: p.evS ?? 0,
-      }));
+        ability: p.ability ?? "", teraType: p.teraType ?? "", roleTags: p.roleTags ?? [], pickPriority: p.pickPriority ?? "", memo: p.memo ?? "",
+      } as MyPokemon));
     } catch { return []; }
   });
   const [opponent, setOpponent] = useState<string[]>(() => {
@@ -792,12 +812,13 @@ export default function App() {
   }
 
   function deleteEntry(id: string) {
+    if (!window.confirm("このポケモンを削除しますか？")) return;
     setMyTeam(prev => prev.filter(p => p.id !== id));
   }
 
   function editEntry(p: MyPokemon) {
     setEditingId(p.id);
-    setForm({ name: p.name, evH: p.evH, evA: p.evA, evB: p.evB, evC: p.evC, evD: p.evD, evS: p.evS, move1: p.move1, move2: p.move2, move3: p.move3, move4: p.move4, nature: p.nature, item: p.item });
+    setForm({ name: p.name, evH: p.evH, evA: p.evA, evB: p.evB, evC: p.evC, evD: p.evD, evS: p.evS, move1: p.move1, move2: p.move2, move3: p.move3, move4: p.move4, nature: p.nature, item: p.item, ability: p.ability ?? "", teraType: p.teraType ?? "", roleTags: p.roleTags ?? [], pickPriority: p.pickPriority ?? "", memo: p.memo ?? "" });
   }
 
   function cancelEdit() {
@@ -989,6 +1010,19 @@ function RegisterScreen({ form, setForm, myTeam, onSave, onDelete, onEdit, onCan
             onChange={val => setForm({ ...form, item: val })}
           />
         </div>
+        <div className="field"><label className="field-label">特性</label><input className="field-input" placeholder="例: さめはだ" value={form.ability} onChange={f("ability")} /></div>
+        <div className="field">
+          <label className="field-label">テラスタイプ</label>
+          <select className="field-select" value={form.teraType} onChange={f("teraType")}><option value="">選択してください</option>{TERA_TYPES.map(t => <option key={t} value={t}>{t}</option>)}</select>
+        </div>
+        <div className="field">
+          <label className="field-label">役割タグ（複数選択）</label>
+          <div className="result-tags">
+            {ROLE_TAGS.map(tag => <button key={tag} type="button" className={`result-tag ${form.roleTags.includes(tag) ? "role-active" : ""}`} onClick={() => setForm({ ...form, roleTags: form.roleTags.includes(tag) ? form.roleTags.filter(t => t !== tag) : [...form.roleTags, tag] })}>{tag}</button>)}
+          </div>
+        </div>
+        <div className="field"><label className="field-label">選出優先度</label><select className="field-select" value={form.pickPriority} onChange={f("pickPriority")}><option value="">未設定</option><option value="高">高</option><option value="中">中</option><option value="低">低</option></select></div>
+        <div className="field"><label className="field-label">メモ</label><textarea className="field-input" placeholder="例: 初手に出しやすい" value={form.memo} onChange={e => setForm({ ...form, memo: e.target.value })} rows={3} /></div>
 
         <div style={{ display: "flex", gap: "10px", marginTop: "4px" }}>
           <button
@@ -1024,11 +1058,16 @@ function RegisterScreen({ form, setForm, myTeam, onSave, onDelete, onEdit, onCan
                   <div className="pokemon-card-meta">
                     {p.nature && <span className="pokemon-card-tag">{p.nature}</span>}
                     {p.item && <span className="pokemon-card-tag">{p.item}</span>}
+                    {p.ability && <span className="pokemon-card-tag">{p.ability}</span>}
+                    {p.teraType && <span className="pokemon-card-tag">テラ:{p.teraType}</span>}
+                    {p.pickPriority && <span className="pokemon-card-tag">優先:{p.pickPriority}</span>}
+                    {p.roleTags?.map((t, i) => <span className="pokemon-card-tag" key={`rt-${i}`}>{t}</span>)}
                     <span className="pokemon-card-tag">{formatEVs(p)}</span>
                     {[p.move1, p.move2, p.move3, p.move4].filter(Boolean).map((m, i) => (
                       <span className="pokemon-card-tag" key={i}>{m}</span>
                     ))}
                   </div>
+                  {p.memo && <div className="result-reason" style={{ marginTop: 6 }}>メモ: {p.memo}</div>}
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: "4px", alignItems: "flex-end" }}>
                   <button className="btn-secondary" style={{ padding: "6px 12px", fontSize: 13 }} onClick={() => onEdit(p)} data-testid={`btn-edit-${p.id}`}>編集</button>
@@ -1112,6 +1151,12 @@ function BattleScreen({
                 <div className="result-info">
                   <div className="result-name">{p.name}</div>
                   <div className="result-reason">{p.reason}</div>
+                  <div className="result-tags">
+                    <span className="result-tag">役割: {p.role}</span>
+                    <span className="result-tag">持ち物: {p.item}</span>
+                    <span className="result-tag">技: {p.moves}</span>
+                    <span className="result-tag">注意: {p.caution}</span>
+                  </div>
                 </div>
                 <div className="result-score">
                   <span className="result-score-num">{p.score}</span>
@@ -1172,6 +1217,8 @@ function BattleScreen({
                 <div className="legend-item"><span className="legend-tag">攻撃耐性</span><span className="legend-score">+2</span></div>
                 <div className="legend-item"><span className="legend-tag">高速火力</span><span className="legend-score">+2</span></div>
                 <div className="legend-item"><span className="legend-tag">耐久</span><span className="legend-score">+1</span></div>
+                <div className="legend-item"><span className="legend-tag">役割補完</span><span className="legend-score">+1</span></div>
+                <div className="legend-item"><span className="legend-tag">持ち物・技の相性</span><span className="legend-score">+1</span></div>
               </div>
             </div>
           </>
