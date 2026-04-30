@@ -828,8 +828,11 @@ export default function App() {
 
   return (
     <div id="app-root">
+      <div className="hud-bg-layer" aria-hidden="true" />
       <header className="site-header">
         <div className="site-header-icon" aria-hidden="true" />
+        <div className="site-header-deco site-header-deco--left" aria-hidden="true" />
+        <div className="site-header-deco site-header-deco--right" aria-hidden="true" />
         <div className="site-header-copy">
           <h1>ポケモンバトルツール（Web版）</h1>
           <p>最適な選出で勝利をつかめ！</p>
@@ -871,6 +874,17 @@ export default function App() {
       {screen === "battle" && (
         <BattleScreen opponent={opponent} setOpponent={setOpponent} myTeam={myTeam} />
       )}
+      <footer className="bottom-nav" aria-label="補助ナビゲーション">
+        <button type="button" className="bottom-nav-item bottom-nav-item--active">
+          <span aria-hidden="true">⌂</span><span>ホーム</span>
+        </button>
+        <button type="button" className="bottom-nav-item">
+          <span aria-hidden="true">▤</span><span>保存リスト</span>
+        </button>
+        <button type="button" className="bottom-nav-item">
+          <span aria-hidden="true">?</span><span>使い方</span>
+        </button>
+      </footer>
     </div>
   );
 }
@@ -1144,7 +1158,7 @@ function BattleScreen({
               {validCount}匹のパーティから選出されやすい3匹を予測しています
             </div>
             {predictions.map((p, i) => (
-              <div className="result-pokemon" key={p.name} data-testid={`result-opponent-${i + 1}`}>
+            <div className={`result-pokemon result-pokemon--rank-${i + 1}`} key={p.name} data-testid={`result-opponent-${i + 1}`}>
                 <div className="result-rank-badge" style={{ background: RANK_COLORS[i] }}>
                   {RANK_LABELS[i]}
                 </div>
@@ -1189,7 +1203,7 @@ function BattleScreen({
               登録済み{myTeam.length}匹の中から最も通りが良い3匹を提案しています
             </div>
             {recommendations.map((r, i) => (
-              <div className="result-pokemon" key={r.pokemon.id} data-testid={`result-myteam-${i + 1}`}>
+              <div className={`result-pokemon result-pokemon--rank-${i + 1}`} key={r.pokemon.id} data-testid={`result-myteam-${i + 1}`}>
                 <div className="result-rank-badge" style={{ background: RANK_COLORS[i] }}>
                   {RANK_LABELS[i]}
                 </div>
