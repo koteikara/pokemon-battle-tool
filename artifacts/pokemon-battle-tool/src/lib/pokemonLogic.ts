@@ -11,6 +11,13 @@ export interface Pokemon {
   name: string;
   type1: PokemonType;
   type2: PokemonType;
+  ability?: string;
+  teraType?: PokemonType;
+  canMega?: boolean;
+  roleMemo?: string;
+  priority?: "high" | "medium" | "low";
+  memo?: string;
+  item?: string;
 }
 
 // 0 = Normal, 1 = Fire, 2 = Water, 3 = Electric, 4 = Grass, 5 = Ice, 6 = Fighting, 7 = Poison
