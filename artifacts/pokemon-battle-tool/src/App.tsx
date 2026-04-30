@@ -26,6 +26,8 @@ interface MyPokemon {
   memo: string;
 }
 
+const TERA_TYPES = ["ノーマル", "ほのお", "みず", "でんき", "くさ", "こおり", "かくとう", "どく", "じめん", "ひこう", "エスパー", "むし", "いわ", "ゴースト", "ドラゴン", "あく", "はがね", "フェアリー"] as const;
+
 // ── Allowed Pokémon (カタカナ) ───────────────────────────────────────────────
 const ALLOWED_POKEMON: string[] = [
   "ガブリアス",
@@ -433,6 +435,7 @@ function ItemPicker({ value, onChange }: ItemPickerProps) {
       const t = setTimeout(() => searchRef.current?.focus(), 80);
       return () => clearTimeout(t);
     }
+    return undefined;
   }, [open]);
 
   // Prevent body scroll when modal open
@@ -648,20 +651,81 @@ function buildReason(tags: PokemonTags): string {
   return parts.length > 0 ? parts.join("・") : "汎用性が高い";
 }
 
-type OppPrediction = { name: string; score: number; reason: string; role: string; item: string; moves: string; caution: string };
+type OppPrediction = { name: string; score: number; reason: string; role: string; caution: string };
+
+type PokemonMeta = { roles: string[]; note: string; caution: string };
+
+const DEFAULT_POKEMON_META: PokemonMeta = {
+  roles: ["汎用"],
+  note: "相手パーティの一員として選出される可能性があります",
+  caution: "型が読みにくいため、技範囲に注意",
+};
+
+const HIGH_PICK_PRESSURE_POKEMON = new Set([
+  "ガブリアス", "アシレーヌ", "リザードン", "ブリジュラス", "アーマーガア", "カバルドン", "ゲンガー", "カイリュー",
+  "ギルガルド", "ハッサム", "マスカーニャ", "ドドゲザン", "ミミッキュ", "サザンドラ", "ウォッシュロトム", "ブラッキー",
+  "ルカリオ", "ギャラドス", "ゲッコウガ", "ウルガモス", "バンギラス", "ドラパルト", "ドヒドイデ", "ペリッパー", "マリルリ",
+  "カビゴン", "サーナイト", "ガオガエン", "ミロカロス", "ジャローダ", "シャンデラ", "メタモン", "イルカマン", "フーディン",
+  "ゴウカザル", "ファイアロー", "キョジオーン", "グライオン", "ジュナイパー（ヒスイ）", "ジャラランガ", "コータス", "ワルビアル",
+  "ニョロトノ", "ゾロアーク", "ミカルゲ", "クレッフィ", "ピカチュウ", "ロトム",
+].map(normalize));
+
+const POKEMON_META: Record<string, PokemonMeta> = {
+  "ガブリアス": { roles: ["物理アタッカー", "高速アタッカー", "対面性能"], note: "高速物理アタッカーとして選出されやすく、広い相手に対応しやすい", caution: "じめん・ドラゴン打点に注意" },
+  "アーマーガア": { roles: ["受け", "物理受け", "サイクル"], note: "物理方面の受け役として選出されやすい", caution: "長期戦や詰ませ性能に注意" },
+  "ゲンガー": { roles: ["特殊アタッカー", "高速アタッカー", "対面性能"], note: "高速特殊アタッカーとして崩し性能が高い", caution: "状態異常や高火力特殊技に注意" },
+  "カバルドン": { roles: ["受け", "起点作成", "天候要員"], note: "起点作成と天候展開で試合を作りやすい", caution: "ステルスロック展開に注意" },
+  "ペリッパー": { roles: ["起点作成", "天候要員", "サイクル"], note: "雨展開の始動役として選出されやすい", caution: "天候エースの同時選出に注意" },
+  "ニョロトノ": { roles: ["天候要員", "サイクル"], note: "雨展開の軸として選出されやすい", caution: "雨下での高火力技に注意" },
+  "ドラパルト": { roles: ["高速アタッカー", "物理アタッカー", "特殊アタッカー", "対面性能"], note: "高速高火力で初手から終盤まで通しやすい", caution: "型の判別が難しいため技範囲に注意" },
+  "ウルガモス": { roles: ["特殊アタッカー", "詰め性能", "積みアタッカー"], note: "積みからの全抜き性能が高く選出されやすい", caution: "ちょうのまい展開と終盤の全抜きに注意" },
+  "ギャラドス": { roles: ["物理アタッカー", "積みアタッカー", "対面性能"], note: "積み展開から詰めに移行しやすい", caution: "りゅうのまい後の制圧力に注意" },
+};
+
+function getPokemonMeta(name: string): PokemonMeta {
+  const norm = normalize(name);
+  const key = Object.keys(POKEMON_META).find(k => normalize(k) === norm);
+  return key ? POKEMON_META[key] : DEFAULT_POKEMON_META;
+}
+
 function predictOpponent(slots: string[]): OppPrediction[] {
-  const valid = slots.filter(s => s.trim() && isAllowed(s));
-  return valid
-    .map(name => {
-      const { score, tags } = scorePokemon(name);
-      const role = tags.lead ? "先発・展開役" : tags.defensive ? "耐久・受け" : tags.fast && tags.attacker ? "高速アタッカー" : "汎用アタッカー";
-      const item = tags.lead ? "きあいのタスキ/補助系" : tags.defensive ? "たべのこし/オボンのみ" : "こだわり系/火力増強";
-      const moves = tags.lead ? "ステロ・ちょうはつ・とんぼ返り" : tags.defensive ? "回復技・状態異常技" : "高火力一致技・補完技";
-      const caution = tags.fast ? "上から縛られやすい" : tags.attacker ? "受け出ししにくい火力に注意" : "サイクル戦で削られないよう注意";
-      return { name, score, reason: buildReason(tags), role, item, moves, caution };
-    })
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 3);
+  const uniqueValid = slots
+    .map(s => s.trim())
+    .filter(s => s && isAllowed(s))
+    .reduce<string[]>((acc, name) => {
+      if (!acc.some(existing => normalize(existing) === normalize(name))) acc.push(name);
+      return acc;
+    }, []);
+  if (uniqueValid.length === 0) return [];
+
+  const metas = uniqueValid.map(name => ({ name, meta: getPokemonMeta(name) }));
+  const hasPhysical = metas.some(p => p.meta.roles.includes("物理アタッカー"));
+  const hasSpecial = metas.some(p => p.meta.roles.includes("特殊アタッカー"));
+  const hasDefensive = metas.some(p => p.meta.roles.includes("受け"));
+  const hasSetter = metas.some(p => p.meta.roles.includes("起点作成"));
+  const hasWeather = metas.some(p => p.meta.roles.includes("天候要員"));
+  const hasWeatherAbuser = metas.some(p => p.meta.roles.some(r => ["高速アタッカー", "特殊アタッカー", "物理アタッカー"].includes(r)));
+
+  const scored = metas.map(({ name, meta }) => {
+    let score = 50;
+    if (meta.roles.includes("高速アタッカー")) score += 20;
+    if (meta.roles.includes("物理アタッカー")) score += 15;
+    if (meta.roles.includes("特殊アタッカー")) score += 15;
+    if (meta.roles.includes("受け")) score += 15;
+    if (meta.roles.includes("起点作成")) score += 10;
+    if (meta.roles.includes("詰め性能")) score += 15;
+    if (meta.roles.includes("対面性能")) score += 15;
+    if (HIGH_PICK_PRESSURE_POKEMON.has(normalize(name))) score += 15;
+
+    if (hasPhysical && hasSpecial && (meta.roles.includes("物理アタッカー") || meta.roles.includes("特殊アタッカー"))) score += 5;
+    if (hasDefensive && (meta.roles.includes("物理アタッカー") || meta.roles.includes("特殊アタッカー") || meta.roles.includes("高速アタッカー"))) score += 5;
+    if (hasSetter && meta.roles.includes("積みアタッカー")) score += 10;
+    if (hasWeather && hasWeatherAbuser && (meta.roles.includes("天候要員") || meta.roles.includes("高速アタッカー") || meta.roles.includes("特殊アタッカー") || meta.roles.includes("物理アタッカー"))) score += 10;
+
+    return { name, score, reason: meta.note, role: meta.roles.join(" / "), caution: meta.caution };
+  });
+
+  return scored.sort((a, b) => b.score - a.score).slice(0, Math.min(3, scored.length));
 }
 
 // ── My Team Recommendation ────────────────────────────────────────────────────
@@ -1116,20 +1180,17 @@ function BattleScreen({
         </p>
       </div>
 
-      {/* ── 相手の選出予想 ──────────────────────────────────────────── */}
+      {/* ── 相手の選出予測 ──────────────────────────────────────────── */}
       <div className="card">
-        <div className="result-section-title">相手の選出予想</div>
+        <div className="result-section-title">相手の選出予測</div>
+        <div className="result-meta-note">入力された相手パーティから、選出されやすい3匹を予測します。</div>
         {validCount === 0 ? (
           <div className="result-empty">
             <div className="result-empty-icon">🔍</div>
-            <div className="result-empty-text">相手のポケモンを入力してください</div>
-            <div className="result-empty-sub">入力するとリアルタイムで予測が表示されます</div>
+            <div className="result-empty-text">相手のポケモンを入力すると、選出予測が表示されます</div>
           </div>
         ) : (
           <>
-            <div className="result-meta-note">
-              {validCount}匹のパーティから選出されやすい3匹を予測しています
-            </div>
             {predictions.map((p, i) => (
             <div className={`result-pokemon result-pokemon--rank-${i + 1}`} key={p.name} data-testid={`result-opponent-${i + 1}`}>
                 <div className="result-rank-badge" style={{ background: RANK_COLORS[i] }}>
@@ -1140,8 +1201,6 @@ function BattleScreen({
                   <div className="result-reason">{p.reason}</div>
                   <div className="result-tags">
                     <span className="result-tag">役割: {p.role}</span>
-                    <span className="result-tag">持ち物: {p.item}</span>
-                    <span className="result-tag">技: {p.moves}</span>
                     <span className="result-tag">注意: {p.caution}</span>
                   </div>
                 </div>
