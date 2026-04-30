@@ -808,8 +808,11 @@ export default function App() {
   return (
     <div id="app-root">
       <header className="site-header">
-        <h1>ポケモンバトルツール（Web版）</h1>
-        <p>iPhone Safariでも使いやすい2画面構成</p>
+        <div className="site-header-icon" aria-hidden="true" />
+        <div className="site-header-copy">
+          <h1>ポケモンバトルツール（Web版）</h1>
+          <p>最適な選出で勝利をつかめ！</p>
+        </div>
       </header>
 
       {/* ── Webページ内ナビゲーション（2画面） ─────────────────────────── */}
@@ -876,12 +879,12 @@ function EVSection({ form, setForm }: { form: Omit<MyPokemon, "id">; setForm: (f
 
   return (
     <div className="field">
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+      <div className="ev-header-row">
         <label className="field-label" style={{ margin: 0 }}>努力値</label>
-        <div style={{ fontSize: 13, color: overTotal ? "#cc2233" : remaining === 0 ? "#19a355" : "#888" }}>
+        <div className={`ev-total${overTotal ? " ev-total--error" : remaining === 0 ? " ev-total--done" : ""}`}>
           合計 <strong>{total}</strong> / {EV_MAX_TOTAL}
-          {remaining > 0 && !overTotal && <span style={{ marginLeft: 6, color: "#aaa" }}>（残り{remaining}）</span>}
         </div>
+        <div className={`ev-remaining${overTotal ? " ev-remaining--error" : ""}`}>残り {Math.max(remaining, 0)}</div>
       </div>
 
       <div className="ev-grid">
@@ -889,7 +892,7 @@ function EVSection({ form, setForm }: { form: Omit<MyPokemon, "id">; setForm: (f
           const val = form[key] as number;
           const isOver = val > EV_MAX_SINGLE;
           return (
-            <div key={key} className="ev-cell">
+            <div key={key} className={`ev-cell ev-cell--${key}`}>
               <div className="ev-label">{label}</div>
               <div className="ev-sublabel">{full}</div>
               <input
