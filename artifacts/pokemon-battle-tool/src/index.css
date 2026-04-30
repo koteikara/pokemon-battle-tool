@@ -70,12 +70,16 @@ body {
 .pokemon-card { background: rgba(6,18,48,.88); border:1px solid rgba(98,128,199,.4); border-radius:12px; padding:12px; display:flex; gap:10px; }
 .pokemon-card-name { font-size: 18px; font-weight: 800; }
 .pokemon-card-meta,.result-reason,.result-meta-note,.result-empty-sub { color:#a8bbdd; }
+.pokemon-card-meta,.result-tags { display:flex; flex-wrap:wrap; gap:6px; }
 .pokemon-card-tag,.result-tag,.legend-tag { background: rgba(30,58,111,.5); color:#d5e6ff; border:1px solid rgba(95,135,221,.4); border-radius:999px; padding:3px 8px; font-size:12px; }
+.role-active { background: rgba(35,104,78,.6); border-color: rgba(87,215,161,.8); }
 .empty-state,.result-empty-text{ color:#d7e7ff; text-align:center; padding:20px 10px; }
 
 .slot-num { width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#165fff,#f03f6f);display:flex;align-items:center;justify-content:center;font-weight:800; }
 .result-section-title { font-size: 18px; font-weight: 800; color:#e9f3ff; margin-bottom: 8px; }
 .result-pokemon { display:flex; gap:10px; padding:10px 0; border-bottom:1px solid rgba(102,126,177,.3); align-items: center; }
+.result-info,.pokemon-card-info{ min-width:0; flex:1; }
+.result-name,.result-reason { word-break: break-word; overflow-wrap:anywhere; }
 .result-rank-badge { min-width:42px; height:42px; border-radius:11px; font-weight:800; color:#2a1a00; }
 .result-rank-badge:has(span) {}
 .result-score-num { font-size: 28px; color:#80b9ff; }
