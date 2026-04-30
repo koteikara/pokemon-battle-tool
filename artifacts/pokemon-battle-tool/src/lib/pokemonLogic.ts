@@ -56,7 +56,7 @@ export function getMultiplier(attackType: Exclude<PokemonType, "">, defendType1:
   const def1 = TYPE_INDEX[defendType1];
   let mult = TYPE_CHART[atk][def1];
 
-  if (defendType2 && defendType2 !== "") {
+  if (defendType2) {
     const def2 = TYPE_INDEX[defendType2 as Exclude<PokemonType, "">];
     mult *= TYPE_CHART[atk][def2];
   }
