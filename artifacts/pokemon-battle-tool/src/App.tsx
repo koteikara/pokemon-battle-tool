@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from "react";
 
 type Screen = "register" | "battle";
 
+// モバイルSafari向けの通常Webサイト（PWA/ネイティブ前提ではない）
+
 interface MyPokemon {
   id: string;
   name: string;
@@ -805,7 +807,12 @@ export default function App() {
 
   return (
     <div id="app-root">
-      {/* ── Tab Bar ─────────────────────────────────────────────────── */}
+      <header className="site-header">
+        <h1>ポケモンバトルツール（Web版）</h1>
+        <p>iPhone Safariでも使いやすい2画面構成</p>
+      </header>
+
+      {/* ── Webページ内ナビゲーション（2画面） ─────────────────────────── */}
       <nav className="tab-bar">
         <button
           className={`tab-btn${screen === "register" ? " tab-btn--active" : ""}`}
@@ -821,7 +828,7 @@ export default function App() {
           data-testid="tab-battle"
         >
           <span className="tab-icon">⚔️</span>
-          <span className="tab-label">相手・選出予測</span>
+          <span className="tab-label">相手入力・最適選出</span>
         </button>
       </nav>
 
@@ -1059,7 +1066,7 @@ function BattleScreen({
 
       {/* ── 相手のパーティ入力 ──────────────────────────────────────── */}
       <div className="card">
-        <div className="card-title">相手のパーティ（最大6匹）</div>
+        <div className="card-title">相手のポケモン入力（最大6匹）</div>
         {opponent.map((name, i) => (
           <div className="field" key={i} style={{ marginBottom: i < 5 ? 14 : 0 }}>
             <div className="opponent-slot" style={{ alignItems: "flex-start", gap: 10 }}>
