@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { MOVES } from "./lib/moves";
 
 type Screen = "register" | "battle";
 
@@ -256,6 +257,88 @@ function toKatakana(str: string): string {
 // 正規化して比較（ひらがな・カタカナ両対応）
 function normalize(str: string): string {
   return toKatakana(str.trim());
+}
+
+
+
+function isAllowedMove(name: string): boolean {
+  if (!name.trim()) return true;
+  const n = normalize(name);
+  return MOVES.some(m => normalize(m) === n);
+}
+
+function getMoveSuggestions(input: string): string[] {
+  if (!input.trim()) return [];
+  const n = normalize(input);
+  return MOVES.filter(m => normalize(m).includes(n));
+}
+
+interface MoveInputProps {
+  value: string;
+  onChange: (val: string) => void;
+  placeholder: string;
+  testId: string;
+}
+
+function MoveInput({ value, onChange, placeholder, testId }: MoveInputProps) {
+  const [open, setOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const suggestions = getMoveSuggestions(value).slice(0, 50);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  useEffect(() => setActiveIndex(0), [value]);
+
+  function pick(move: string) {
+    onChange(move);
+    setOpen(false);
+  }
+
+  const showError = value.trim() !== "" && !isAllowedMove(value);
+
+  return (
+    <div className="pokemon-input-wrap" ref={wrapRef}>
+      <input
+        className={`field-input${showError ? " field-input-error" : ""}`}
+        placeholder={placeholder}
+        value={value}
+        data-testid={testId}
+        autoComplete="off"
+        onChange={e => { onChange(e.target.value); setOpen(true); }}
+        onFocus={() => setOpen(true)}
+        onKeyDown={e => {
+          if (!open || suggestions.length === 0) return;
+          if (e.key === "ArrowDown") { e.preventDefault(); setActiveIndex(i => Math.min(i + 1, suggestions.length - 1)); }
+          if (e.key === "ArrowUp") { e.preventDefault(); setActiveIndex(i => Math.max(i - 1, 0)); }
+          if (e.key === "Enter") { e.preventDefault(); pick(suggestions[activeIndex]); }
+          if (e.key === "Escape") setOpen(false);
+        }}
+      />
+      {open && suggestions.length > 0 && (
+        <div className="suggestions-list" role="listbox">
+          {suggestions.map((m, idx) => (
+            <div
+              key={m}
+              className={`suggestion-item${idx === activeIndex ? " suggestion-item--active" : ""}`}
+              role="option"
+              aria-selected={idx === activeIndex}
+              onMouseDown={() => pick(m)}
+            >
+              {m}
+            </div>
+          ))}
+        </div>
+      )}
+      {showError && <div className="field-error-msg">この技は使用可能技リストにありません</div>}
+    </div>
+  );
 }
 
 function isAllowed(name: string): boolean {
@@ -1060,11 +1143,16 @@ function RegisterScreen({ form, setForm, myTeam, onSave, onDelete, onEdit, onCan
         <div className="field">
           <label className="field-label">技</label>
           <div className="moves-grid">
-            <input className="field-input" placeholder="技1" value={form.move1} onChange={f("move1")} data-testid="input-move1" />
-            <input className="field-input" placeholder="技2" value={form.move2} onChange={f("move2")} data-testid="input-move2" />
-            <input className="field-input" placeholder="技3" value={form.move3} onChange={f("move3")} data-testid="input-move3" />
-            <input className="field-input" placeholder="技4" value={form.move4} onChange={f("move4")} data-testid="input-move4" />
+            <MoveInput placeholder="技1" value={form.move1} onChange={val => setForm({ ...form, move1: val })} testId="input-move1" />
+            <MoveInput placeholder="技2" value={form.move2} onChange={val => setForm({ ...form, move2: val })} testId="input-move2" />
+            <MoveInput placeholder="技3" value={form.move3} onChange={val => setForm({ ...form, move3: val })} testId="input-move3" />
+            <MoveInput placeholder="技4" value={form.move4} onChange={val => setForm({ ...form, move4: val })} testId="input-move4" />
           </div>
+          {(() => {
+            const moves = [form.move1, form.move2, form.move3, form.move4].map(m => m.trim()).filter(Boolean);
+            const hasDup = new Set(moves).size !== moves.length;
+            return hasDup ? <div className="field-error-msg" style={{ marginTop: 6 }}>同じ技が重複しています</div> : null;
+          })()}
         </div>
 
         <div className="field">
