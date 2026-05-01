@@ -95,7 +95,17 @@ body {
 .legend-tag { white-space: normal; }
 
 .empty-state { text-align: center; color: var(--text-muted); padding: 24px 8px; }
-.field-error-msg { color: var(--danger); }
+.field-error-msg { color: var(--danger); margin-top: 6px; }
+
+.field-input-error { border-color: rgba(255,107,141,.8); }
+.field-ok-msg { color: var(--success); margin-top: 6px; }
+.pokemon-input-wrap { position: relative; }
+.suggestions-list { position: absolute; z-index: 30; top: calc(100% + 6px); left: 0; right: 0; max-height: 240px; overflow-y: auto; border: 1px solid rgba(88,170,255,.45); border-radius: 12px; background: rgba(4,14,36,.98); box-shadow: 0 10px 24px rgba(0,0,0,.45); }
+.suggestion-item { min-height: 44px; display: flex; align-items: center; padding: 10px 12px; border-bottom: 1px solid rgba(88,170,255,.18); }
+.suggestion-item:last-child { border-bottom: none; }
+.suggestion-item--active,.suggestion-item:hover { background: rgba(31,109,233,.28); }
+.suggestion-highlight { color: #8fe8ff; font-weight: 800; }
+
 .role-active { border-color: rgba(83,237,195,.75); background: rgba(15,113,88,.52); }
 
 .bottom-nav { margin: 4px 12px 14px; border: 1px solid rgba(89,139,233,.42); background: var(--bg-panel-strong); border-radius: 14px; display: grid; grid-template-columns: repeat(3, 1fr); overflow: hidden; }
