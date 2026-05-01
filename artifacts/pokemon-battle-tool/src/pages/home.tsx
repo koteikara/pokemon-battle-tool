@@ -11,6 +11,9 @@ import { POKEMON_TYPES, Pokemon, PokemonType, getMultiplier } from "@/lib/pokemo
 
 const STORAGE_KEY = "pokemon-battle-tool-data-v1";
 const PRIORITIES = ["high", "medium", "low"] as const;
+const ABILITY_LIST = [
+  "アイスボディ","あくしゅう","あついしぼう","あとだし","アナライズ","あまのじゃく","あめうけざら","あめふらし","アロマベール","いかく","いしあたま","いたずらごころ","いやしのこころ","イリュージョン","うるおいボディ","おみとおし","おやこあい","かいりきバサミ","かげふみ","かそく","かたいツメ","かたやぶり","かちき","かるわざ","かわりもの","がんじょう","がんじょうあご","かんそうはだ","きけんよち","きもったま","きょううん","きょうせい","きんちょうかん","くいしんぼう","くだけるよろい","クリアボディ","げきりゅう","こんじょう","さいせいりょく","サンパワー","シェルアーマー","じしんかじょう","しぜんかいふく","しめりけ","しゅうかく","じゅうなん","しろいけむり","シンクロ","しんりょく","スイートベール","すいすい","スカイスキン","スキルリンク","すてみ","スナイパー","すなおこし","すなかき","すながくれ","すなのちから","すりぬけ","するどいめ","せいぎのこころ","せいしんりょく","せいでんき","そうしょく","たいねつ","だっぴ","ちからずく","ちからもち","ちくでん","ちどりあし","ちょすい","てきおうりょく","テクニシャン","てつのこぶし","テレパシー","てんきや","てんねん","とうそうしん","どくしゅ","どくのトゲ","トレース","どんかん","ぬめぬめ","ねんちゃく","ノーガード","ノーてんき","のろわれボディ","ハードロック","はっこう","はとむね","バトルスイッチ","はやあし","はやおき","はりきり","ひでり","ひらいしん","ファーコート","フィルター","フェアリーオーラ","フェアリースキン","ぶきよう","ふくがん","ふくつのこころ","ふしぎなうろこ","ふみん","ふゆう","プラス","フラワーベール","フリーズスキン","プレッシャー","フレンドガード","ヘヴィメタル","へんげんじざい","ポイズンヒール","ぼうおん","ぼうじん","ぼうだん","ほおぶくろ","ほのおのからだ","マイナス","マイペース","マグマのよろい","まけんき","マジックガード","マジックミラー","ミイラ","むしのしらせ","ムラっけ","メガランチャー","メロメロボディ","めんえき","もうか","ものひろい","もらいび","やるき","ゆうばく","ゆきがくれ","ゆきふらし","ようりょくそ","ヨガパワー","ライトメタル","リーフガード","りんぷん","わるいてぐせ","ぎゃくじょう","ふしょく","ばけのかわ","じきゅうりょく","とびだすなかみ","サーフテール","レシーバー","じょおうのいげん","ゆきかき","えんかく","うるおいボイス","ひとでなし","すいほう","ミラーアーマー","すなはき","ぎたい","じゅくせい","さまようたましい","バリアフリー","はらぺこスイッチ","すじがねいり","ふかしのこぶし","クイックドロウ","さめはだ","でんきエンジン","いかりのつぼ","マルチスケイル","はやてのつばさ","マジシャン","きみょうなくすり","テイルアーマー","でんきにかえる","はんすう","どしょく","びんじょう","マイティチェンジ","どくげしょう","そうだいしょう","きれあじ","きよめのしお","かんろなミツ","おもてなし","メガソーラー","ドラゴンスキン","かんつうドリル","とびだすハバネロ"
+] as const;
 
 type Priority = (typeof PRIORITIES)[number];
 
@@ -42,6 +45,35 @@ function TypeSelect({ value, onChange, placeholder }: { value: PokemonType; onCh
         {POKEMON_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
       </SelectContent>
     </Select>
+  );
+}
+
+function AbilitySelect({ value, onChange, placeholder = "特性を選択" }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
+  const [open, setOpen] = useState(false);
+  const filtered = useMemo(() => ABILITY_LIST.filter((ability) => ability.includes(value)).slice(0, 20), [value]);
+
+  return (
+    <div className="relative">
+      <Input
+        value={value}
+        placeholder={placeholder}
+        onFocus={() => setOpen(true)}
+        onChange={(e) => { onChange(e.target.value); setOpen(true); }}
+        onBlur={() => setTimeout(() => setOpen(false), 120)}
+      />
+      {open && (
+        <div className="absolute z-20 mt-1 max-h-44 w-full overflow-y-auto rounded-md border bg-background shadow-lg">
+          <button type="button" className="w-full px-3 py-2 text-left text-sm text-muted-foreground hover:bg-muted" onMouseDown={(e) => e.preventDefault()} onClick={() => onChange("")}>
+            未選択
+          </button>
+          {filtered.map((ability) => (
+            <button key={ability} type="button" className="w-full px-3 py-2 text-left text-sm hover:bg-muted" onMouseDown={(e) => e.preventDefault()} onClick={() => { onChange(ability); setOpen(false); }}>
+              {ability}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -101,7 +133,7 @@ export default function Home() {
         {editingId && <p className="text-sm text-primary">編集中：{userTeam.find((p) => p.id === editingId)?.name || "ポケモン"}</p>}
         <Input value={form.name} placeholder="ポケモン名" onChange={(e) => setForm({ ...form, name: e.target.value })} />
         <div className="grid grid-cols-2 gap-2"><TypeSelect value={form.type1} onChange={(v) => setForm({ ...form, type1: v })} placeholder="タイプ1" /><TypeSelect value={form.type2} onChange={(v) => setForm({ ...form, type2: v })} placeholder="タイプ2" /></div>
-        <Input value={form.ability ?? ""} placeholder="特性" onChange={(e) => setForm({ ...form, ability: e.target.value })} />
+        <AbilitySelect value={form.ability ?? ""} placeholder="例：さめはだ" onChange={(ability) => setForm({ ...form, ability })} />
         <TypeSelect value={form.teraType ?? ""} onChange={(v) => setForm({ ...form, teraType: v })} placeholder="テラスタイプ" />
         <Input value={form.item ?? ""} placeholder="持ち物" onChange={(e) => setForm({ ...form, item: e.target.value })} />
         <Input value={form.roleMemo ?? ""} placeholder="役割メモ（例: 先発 / 耐久 / 高速アタッカー）" onChange={(e) => setForm({ ...form, roleMemo: e.target.value })} />
@@ -113,7 +145,7 @@ export default function Home() {
         {userTeam.map((p) => <div key={p.id} className="border rounded-lg p-3 space-y-2">
           <div className="font-semibold">{p.name || "未設定"}</div>
           <div className="flex flex-wrap gap-1 text-xs">
-            {[p.type1, p.type2, p.ability, p.teraType && `テラ:${p.teraType}`, p.item && `持ち物:${p.item}`, p.roleMemo && `役割:${p.roleMemo}`, `優先度:${priorityLabel[p.priority ?? "medium"]}`, p.canMega ? "メガシンカ可" : "メガシンカ不可"].filter(Boolean).map((x, i) => <Badge key={i} variant="secondary">{x}</Badge>)}
+            {[p.type1, p.type2, p.ability ? `特性:${p.ability}` : "特性未設定", p.teraType && `テラ:${p.teraType}`, p.item && `持ち物:${p.item}`, p.roleMemo && `役割:${p.roleMemo}`, `優先度:${priorityLabel[p.priority ?? "medium"]}`, p.canMega ? "メガシンカ可" : "メガシンカ不可"].filter(Boolean).map((x, i) => <Badge key={i} variant="secondary">{x}</Badge>)}
           </div>
           {p.memo && <p className="text-xs text-muted-foreground break-words">{p.memo}</p>}
           <div className="flex gap-2"><Button size="sm" variant="outline" onClick={() => { setEditingId(p.id); setForm(p); }}>編集</Button><Button size="sm" variant="destructive" onClick={() => { if (window.confirm("このポケモンを削除しますか？")) { setUserTeam((prev) => prev.filter((x) => x.id !== p.id)); if (editingId === p.id) { setEditingId(null); setForm(newPokemon()); } } }}>削除</Button></div>
@@ -124,6 +156,7 @@ export default function Home() {
         {opponents.map((p, i) => <div key={p.id} className="border rounded-lg p-3 space-y-2">
           <Input value={p.name} placeholder={`相手${i + 1}`} onChange={(e) => setOpponents((prev) => prev.map((x, idx) => idx === i ? { ...x, name: e.target.value } : x))} />
           <div className="grid grid-cols-2 gap-2"><TypeSelect value={p.type1} onChange={(v) => setOpponents((prev) => prev.map((x, idx) => idx === i ? { ...x, type1: v } : x))} placeholder="タイプ1" /><TypeSelect value={p.type2} onChange={(v) => setOpponents((prev) => prev.map((x, idx) => idx === i ? { ...x, type2: v } : x))} placeholder="タイプ2" /></div>
+          <AbilitySelect value={p.ability ?? ""} placeholder="特性を選択" onChange={(ability) => setOpponents((prev) => prev.map((x, idx) => idx === i ? { ...x, ability } : x))} />
         </div>)}
       </CardContent></Card>
 
