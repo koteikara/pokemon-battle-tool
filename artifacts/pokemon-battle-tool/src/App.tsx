@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { MOVES } from "./lib/moves";
 
 type Screen = "register" | "battle";
+type BottomView = "home" | "saved" | "guide";
 
 // モバイルSafari向けの通常Webサイト（PWA/ネイティブ前提ではない）
 
@@ -910,6 +911,7 @@ function formatEVs(p: MyPokemon): string {
 // ── App ───────────────────────────────────────────────────────────────────────
 export default function App() {
   const [screen, setScreen] = useState<Screen>("register");
+  const [bottomView, setBottomView] = useState<BottomView>("home");
   const [myTeam, setMyTeam] = useState<MyPokemon[]>(() => {
     try {
       const saved = localStorage.getItem("myTeam");
@@ -958,6 +960,8 @@ export default function App() {
   }
 
   function editEntry(p: MyPokemon) {
+    setBottomView("home");
+    setScreen("register");
     setEditingId(p.id);
     setForm({ name: p.name, evH: p.evH, evA: p.evA, evB: p.evB, evC: p.evC, evD: p.evD, evS: p.evS, move1: p.move1, move2: p.move2, move3: p.move3, move4: p.move4, nature: p.nature, item: p.item, ability: p.ability ?? "", teraType: p.teraType ?? "", roleTags: p.roleTags ?? [], pickPriority: p.pickPriority ?? "", memo: p.memo ?? "" });
   }
@@ -980,55 +984,52 @@ export default function App() {
         </div>
       </header>
 
-      {/* ── Webページ内ナビゲーション（2画面） ─────────────────────────── */}
-      <nav className="tab-bar">
-        <button
-          className={`tab-btn${screen === "register" ? " tab-btn--active" : ""}`}
-          onClick={() => { setScreen("register"); cancelEdit(); }}
-          data-testid="tab-register"
-        >
-          <span className="tab-icon">📋</span>
-          <span className="tab-label">自分のポケモン登録</span>
-        </button>
-        <button
-          className={`tab-btn${screen === "battle" ? " tab-btn--active" : ""}`}
-          onClick={() => setScreen("battle")}
-          data-testid="tab-battle"
-        >
-          <span className="tab-icon">⚔️</span>
-          <span className="tab-label">相手入力・最適選出</span>
-        </button>
-      </nav>
-
-      {screen === "register" && (
-        <RegisterScreen
-          form={form}
-          setForm={setForm}
-          myTeam={myTeam}
-          onSave={saveForm}
-          onDelete={deleteEntry}
-          onEdit={editEntry}
-          onCancelEdit={cancelEdit}
-          editingId={editingId}
-        />
+      {bottomView === "home" && (
+        <>
+          <nav className="tab-bar">
+            <button
+              className={`tab-btn${screen === "register" ? " tab-btn--active" : ""}`}
+              onClick={() => { setScreen("register"); cancelEdit(); }}
+              data-testid="tab-register"
+            >
+              <span className="tab-icon">📋</span>
+              <span className="tab-label">自分のポケモン登録</span>
+            </button>
+            <button
+              className={`tab-btn${screen === "battle" ? " tab-btn--active" : ""}`}
+              onClick={() => setScreen("battle")}
+              data-testid="tab-battle"
+            >
+              <span className="tab-icon">⚔️</span>
+              <span className="tab-label">相手入力・最適選出</span>
+            </button>
+          </nav>
+          {screen === "register" && <RegisterScreen form={form} setForm={setForm} myTeam={myTeam} onSave={saveForm} onDelete={deleteEntry} onEdit={editEntry} onCancelEdit={cancelEdit} editingId={editingId} />}
+          {screen === "battle" && <BattleScreen opponent={opponent} setOpponent={setOpponent} myTeam={myTeam} />}
+        </>
       )}
-      {screen === "battle" && (
-        <BattleScreen opponent={opponent} setOpponent={setOpponent} myTeam={myTeam} />
-      )}
+      {bottomView === "saved" && <SavedListScreen myTeam={myTeam} onEdit={editEntry} onDelete={deleteEntry} />}
+      {bottomView === "guide" && <GuideScreen />}
       <footer className="bottom-nav" aria-label="補助ナビゲーション">
-        <button type="button" className="bottom-nav-item bottom-nav-item--active">
+        <button type="button" className={`bottom-nav-item${bottomView === "home" ? " bottom-nav-item--active" : ""}`} onClick={() => setBottomView("home")} aria-current={bottomView === "home" ? "page" : undefined} aria-pressed={bottomView === "home"}>
           <span aria-hidden="true">⌂</span><span>ホーム</span>
         </button>
-        <button type="button" className="bottom-nav-item">
+        <button type="button" className={`bottom-nav-item${bottomView === "saved" ? " bottom-nav-item--active" : ""}`} onClick={() => setBottomView("saved")} aria-current={bottomView === "saved" ? "page" : undefined} aria-pressed={bottomView === "saved"}>
           <span aria-hidden="true">▤</span><span>保存リスト</span>
         </button>
-        <button type="button" className="bottom-nav-item">
+        <button type="button" className={`bottom-nav-item${bottomView === "guide" ? " bottom-nav-item--active" : ""}`} onClick={() => setBottomView("guide")} aria-current={bottomView === "guide" ? "page" : undefined} aria-pressed={bottomView === "guide"}>
           <span aria-hidden="true">?</span><span>使い方</span>
         </button>
       </footer>
     </div>
   );
 }
+
+function SavedListScreen({ myTeam, onEdit, onDelete }: { myTeam: MyPokemon[]; onEdit: (p: MyPokemon) => void; onDelete: (id: string) => void }) {
+  return <section className="card saved-list-screen"><h2 className="card-title">保存リスト</h2><p className="subtext">登録した自分のポケモンを確認・編集できます。</p><p className="saved-count">登録済み {myTeam.length}匹</p>{myTeam.length === 0 ? <div className="empty-notice"><p>まだポケモンが登録されていません</p><p>ホームから自分のポケモンを登録してください</p></div> : <div className="saved-list-grid">{myTeam.map(p => <article key={p.id} className="saved-card"><h3 className="saved-name">{p.name || "未設定"}</h3><p className="saved-ev">H{p.evH ?? 0} A{p.evA ?? 0} B{p.evB ?? 0} C{p.evC ?? 0} D{p.evD ?? 0} S{p.evS ?? 0}</p><div className="saved-chip-row">{[p.move1, p.move2, p.move3, p.move4].map((m, i) => <span key={`${p.id}-move-${i}`} className="saved-chip">{m || `技${i + 1} 未設定`}</span>)}</div><div className="saved-detail-grid"><p><strong>性格</strong> {p.nature || "未設定"}</p><p><strong>持ち物</strong> {p.item || "未設定"}</p><p><strong>特性</strong> {p.ability || "未設定"}</p><p><strong>テラスタイプ</strong> {p.teraType || "未設定"}</p><p><strong>選出優先度</strong> {p.pickPriority || "未設定"}</p></div><div className="saved-chip-row">{(p.roleTags ?? []).length > 0 ? p.roleTags.map(tag => <span key={`${p.id}-${tag}`} className="saved-chip">{tag}</span>) : <span className="saved-chip">役割タグ 未設定</span>}</div>{p.memo?.trim() ? <p className="saved-memo"><strong>メモ</strong> {p.memo}</p> : null}<div className="saved-actions"><button type="button" className="btn-secondary saved-action-btn" onClick={() => onEdit(p)} aria-label={`${p.name} を編集`}>編集</button><button type="button" className="btn-danger saved-action-btn" onClick={() => onDelete(p.id)} aria-label={`${p.name} を削除`}>削除</button></div></article>)}</div>}</section>;
+}
+
+function GuideScreen() { return <section className="card guide-screen"><h2 className="card-title">使い方</h2><p className="subtext">このツールは、ポケモンチャンピオンズの対戦で、相手の選出予測と自分のおすすめ選出を確認するための補助ツールです。</p><div className="guide-steps">{[{ title: "STEP 1 自分のポケモンを登録する", body: "まず、ホーム画面の「自分のポケモン登録」で、自分が使うポケモンを登録します。", details: ["ポケモン名", "努力値", "技4つ", "性格", "持ち物", "特性", "テラスタイプ", "役割タグ", "選出優先度", "メモ"], note: "努力値はチャンピオンズ制に合わせて、合計66、1項目最大32です。" }, { title: "STEP 2 相手の6匹を入力する", body: "相手入力・最適選出画面で、相手のパーティを最大6匹入力します。", note: "全部入力しなくても動きますが、6匹入力した方が予測しやすくなります。" }, { title: "STEP 3 相手の選出予測を見る", body: "入力された相手パーティから、相手が出してきそうな上位3匹を表示します。", details: ["予測順位", "ポケモン名", "予測スコア", "予測理由", "注意点"] }, { title: "STEP 4 自分のおすすめ選出を見る", body: "相手の予測上位3匹に対して、自分の登録済みポケモンからおすすめ3匹を表示します。", details: ["おすすめ順位", "ポケモン名", "スコア", "おすすめ理由", "スコア内訳"] }, { title: "STEP 5 保存リストで確認する", body: "登録済みポケモンは、下部ナビの「保存リスト」から確認できます。編集や削除もここからできます。" }].map((step, idx) => <article key={step.title} className="guide-step-card"><div className="guide-step-badge">STEP {idx + 1}</div><h3>{step.title}</h3><p>{step.body}</p>{step.details ? <ul>{step.details.map(d => <li key={d}>{d}</li>)}</ul> : null}{step.note ? <p className="subtext">{step.note}</p> : null}</article>)}</div><article className="guide-step-card"><div className="guide-step-badge">注意</div><ul><li>このツールの予測は絶対ではありません。</li><li>実際の対戦では、相手の型やプレイングによって結果が変わります。</li><li>あくまで選出を考えるための補助として使ってください。</li><li>データはこのブラウザのlocalStorageに保存されます。</li><li>端末やブラウザを変えると、保存データは引き継がれません。</li></ul></article></section>; }
 
 // ── EVSection ─────────────────────────────────────────────────────────────────
 const EV_MAX_SINGLE = 32;
