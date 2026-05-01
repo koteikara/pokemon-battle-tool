@@ -729,68 +729,89 @@ function predictOpponent(slots: string[]): OppPrediction[] {
 }
 
 // ── My Team Recommendation ────────────────────────────────────────────────────
-function getTags(name: string): PokemonTags {
-  const norm = normalize(name);
-  const key = Object.keys(POKEMON_SCORE_TABLE).find(k => normalize(k) === norm);
-  return key ? POKEMON_SCORE_TABLE[key] : {};
+type ScoreBreakdown = { label: string; points: number };
+type MyRecommendation = { pokemon: MyPokemon; score: number; reason: string; breakdown: ScoreBreakdown[] };
+
+function hasAnyText(source: string, patterns: string[]): boolean {
+  const text = source.toLowerCase();
+  return patterns.some(pattern => text.includes(pattern));
 }
 
-function recommendMyTeam(
-  myTeam: MyPokemon[],
-  opponentTop3: { name: string; score: number; reason: string }[]
-): { pokemon: MyPokemon; score: number; reason: string }[] {
-  if (myTeam.length === 0 || opponentTop3.length === 0) return [];
+function scorePlayerPokemon(player: MyPokemon, predictedOpponents: OppPrediction[]): MyRecommendation {
+  const breakdown: ScoreBreakdown[] = [{ label: "基本点", points: 50 }];
 
-  return myTeam
-    .map(player => {
-      const pTags = getTags(player.name);
-      let score = 1;
-      let countersCount = 0;
-      const reasons: string[] = [];
+  const roleText = `${player.roleTags.join(" ")} ${player.memo}`;
+  const moves = [player.move1, player.move2, player.move3, player.move4].filter(Boolean);
+  const moveText = moves.join(" ").toLowerCase();
 
-      for (const opp of opponentTop3) {
-        const oTags = getTags(opp.name);
+  if (player.evA >= 24) breakdown.push({ label: "物理火力", points: 8 });
+  if (player.evC >= 24) breakdown.push({ label: "特殊火力", points: 8 });
+  if (player.evS >= 24) breakdown.push({ label: "高速", points: 8 });
+  if (player.evH >= 24 || player.evB >= 24 || player.evD >= 24) breakdown.push({ label: "耐久", points: 6 });
 
-        // Good matchup: attacker vs defensive/lead opponent
-        const goodMatchup =
-          (pTags.attacker && (oTags.defensive || oTags.lead)) ||
-          (pTags.fast && pTags.attacker && oTags.lead);
+  if (hasAnyText(roleText, ["アタッカー"])) breakdown.push({ label: "攻撃役", points: 8 });
+  if (hasAnyText(roleText, ["物理"])) breakdown.push({ label: "物理役", points: 5 });
+  if (hasAnyText(roleText, ["特殊"])) breakdown.push({ label: "特殊役", points: 5 });
+  if (hasAnyText(roleText, ["耐久", "受け"])) breakdown.push({ label: "耐久役", points: 6 });
+  if (hasAnyText(roleText, ["先発"])) breakdown.push({ label: "先発適性", points: 5 });
+  if (hasAnyText(roleText, ["詰め"])) breakdown.push({ label: "詰め役", points: 5 });
+  if (hasAnyText(roleText, ["サポート"])) breakdown.push({ label: "補助役", points: 4 });
 
-        // Resists attacks: tanky player vs offensive opponent
-        const resistsAttacks = pTags.defensive && (oTags.attacker || oTags.fast);
+  const item = player.item;
+  const itemBonus: Record<string, ScoreBreakdown> = {
+    "きあいのタスキ": { label: "行動保証", points: 8 }, "こだわりスカーフ": { label: "高速補強", points: 8 },
+    "たべのこし": { label: "継戦能力", points: 6 }, "オボンのみ": { label: "耐久補助", points: 5 },
+    "いのちのたま": { label: "火力補強", points: 6 }, "こだわりハチマキ": { label: "物理火力", points: 7 },
+    "こだわりメガネ": { label: "特殊火力", points: 7 }, "とつげきチョッキ": { label: "特殊耐久", points: 6 },
+    "ゴツゴツメット": { label: "物理受け", points: 5 },
+  };
+  Object.entries(itemBonus).forEach(([key, bonus]) => { if (item.includes(key)) breakdown.push(bonus); });
+  if (item.includes("ナイト") || item.includes("リザードナイトx") || item.includes("リザードナイトy") || item.includes("リザードナイトX") || item.includes("リザードナイトY")) {
+    breakdown.push({ label: "メガ適性", points: 6 });
+  }
 
-        if (goodMatchup) {
-          score += 3;
-          countersCount++;
-        } else if (resistsAttacks) {
-          score += 2;
-        }
-      }
+  if (player.pickPriority === "高") breakdown.push({ label: "優先度 高", points: 8 });
+  else if (player.pickPriority === "低") breakdown.push({ label: "優先度 低", points: -5 });
 
-      // Bonus: good against 2+ predicted opponents
-      if (countersCount >= 2) score += 3;
+  const selfAttacker = hasAnyText(roleText, ["アタッカー"]) || player.evA >= 24 || player.evC >= 24;
+  const selfFast = hasAnyText(roleText, ["高速"]) || player.evS >= 24;
+  const selfDefensive = hasAnyText(roleText, ["耐久", "受け"]) || player.evH >= 24 || player.evB >= 24 || player.evD >= 24;
+  const selfLead = hasAnyText(roleText, ["先発"]);
+  const selfCloser = hasAnyText(roleText, ["詰め"]);
+  const defensiveOppCount = predictedOpponents.filter(o => hasAnyText(o.role, ["受け", "耐久"])) .length;
 
-      // Flat role bonuses
-      if (pTags.fast && pTags.attacker) score += 2;
-      if (pTags.defensive) score += 1;
-      if (player.pickPriority === "高") score += 2;
-      if (player.pickPriority === "中") score += 1;
-      if (player.roleTags.length >= 2) score += 1;
-      if ((player.item.includes("こだわり") && [player.move1, player.move2, player.move3, player.move4].filter(Boolean).length >= 3) || player.item.includes("たべのこし")) score += 1;
+  predictedOpponents.slice(0,3).forEach((opp, idx) => {
+    const oppAtk = hasAnyText(opp.role, ["アタッカー", "対面性能", "積みアタッカー"]);
+    if (selfFast && selfAttacker && oppAtk) breakdown.push({ label: `予測${idx + 1}位に高速火力対応`, points: 8 });
+    if (selfDefensive && oppAtk) breakdown.push({ label: `予測${idx + 1}位を受けやすい`, points: 8 });
+    if (idx === 0 && selfLead) breakdown.push({ label: "予測1位対策", points: 6 });
+  });
+  if (selfCloser && defensiveOppCount <= 1 && predictedOpponents.length > 0) breakdown.push({ label: "詰め性能が通りやすい", points: 6 });
 
-      // Build reason string
-      if (countersCount >= 2) reasons.push("相手の上位3匹に強く、通りが良いです");
-      else if (countersCount === 1) reasons.push("相手の主力に有利を取れる");
-      if (pTags.fast && pTags.attacker) reasons.push("高速アタッカー");
-      if (pTags.defensive) reasons.push("耐久で粘れる");
-      if (player.roleTags.length >= 2) reasons.push("役割補完がしやすい");
-      if (player.pickPriority) reasons.push(`選出優先度:${player.pickPriority}`);
-      if (reasons.length === 0) reasons.push("汎用性が高い");
+  const movePatterns: Array<{ patterns: string[]; label: string; points: number }> = [
+    { patterns: ["じしん", "だいちのちから"], label: "地面打点", points: 4 },
+    { patterns: ["れいとう", "こおり"], label: "氷打点", points: 4 },
+    { patterns: ["ほのお", "フレア", "かえん"], label: "炎打点", points: 4 },
+    { patterns: ["でんき", "10まん", "ボルト"], label: "電気打点", points: 4 },
+    { patterns: ["みず", "ハイドロ", "アクア"], label: "水打点", points: 4 },
+    { patterns: ["フェアリー", "ムーン", "じゃれつく"], label: "フェアリー打点", points: 4 },
+    { patterns: ["ゴースト", "シャドー"], label: "ゴースト打点", points: 4 },
+    { patterns: ["あく", "かみくだく", "ふいうち"], label: "悪打点", points: 4 },
+    { patterns: ["先制", "しんそく", "ふいうち", "かげうち", "アクアジェット"], label: "先制技", points: 5 },
+    { patterns: ["まもる", "みがわり", "ステルスロック", "おにび", "でんじは"], label: "補助技", points: 3 },
+  ];
+  movePatterns.forEach(entry => { if (hasAnyText(moveText, entry.patterns.map(x => x.toLowerCase()))) breakdown.push({ label: entry.label, points: entry.points }); });
 
-      return { pokemon: player, score, reason: reasons.join("・") };
-    })
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 3);
+  const score = breakdown.reduce((sum, b) => sum + b.points, 0);
+  const topReasons = [...breakdown].sort((a,b)=>b.points-a.points).slice(0,3).map(b=>b.label);
+  const reason = topReasons.length > 0 ? `${topReasons.join("・")}を活かして相手の予測上位3匹へ対応しやすいです` : "相手の予測上位3匹に対応しやすい構成です";
+
+  return { pokemon: player, score, reason, breakdown };
+}
+
+function recommendPlayerSelection(myTeam: MyPokemon[], predictedOpponents: OppPrediction[]): MyRecommendation[] {
+  if (myTeam.length === 0 || predictedOpponents.length === 0) return [];
+  return myTeam.map(player => scorePlayerPokemon(player, predictedOpponents.slice(0, 3))).sort((a, b) => b.score - a.score).slice(0, Math.min(3, myTeam.length));
 }
 
 function emptyForm(): Omit<MyPokemon, "id"> {
@@ -1146,7 +1167,7 @@ function BattleScreen({
 }) {
   const predictions = predictOpponent(opponent);
   const validCount = opponent.filter(s => s.trim() && isAllowed(s)).length;
-  const recommendations = recommendMyTeam(myTeam, predictions);
+  const recommendations = recommendPlayerSelection(myTeam, predictions);
 
   function update(i: number, val: string) {
     const next = [...opponent];
@@ -1220,19 +1241,19 @@ function BattleScreen({
         {myTeam.length === 0 ? (
           <div className="result-empty">
             <div className="result-empty-icon">📋</div>
-            <div className="result-empty-text">自分のポケモンが登録されていません</div>
+            <div className="result-empty-text">自分のポケモンを登録すると、おすすめ選出が表示されます</div>
             <div className="result-empty-sub">「自分のポケモン登録」タブからチームを登録してください</div>
           </div>
         ) : validCount === 0 ? (
           <div className="result-empty">
             <div className="result-empty-icon">⬆️</div>
-            <div className="result-empty-text">相手のポケモンを入力してください</div>
+            <div className="result-empty-text">相手のポケモンを入力すると、おすすめ選出が表示されます</div>
             <div className="result-empty-sub">入力すると最適な選出が自動で表示されます</div>
           </div>
         ) : (
           <>
             <div className="result-meta-note">
-              登録済み{myTeam.length}匹の中から最も通りが良い3匹を提案しています
+              相手の予測上位3匹に対して、登録済みポケモンからおすすめを表示します。
             </div>
             {recommendations.map((r, i) => (
               <div className={`result-pokemon result-pokemon--rank-${i + 1}`} key={r.pokemon.id} data-testid={`result-myteam-${i + 1}`}>
@@ -1242,12 +1263,17 @@ function BattleScreen({
                 <div className="result-info">
                   <div className="result-name">{r.pokemon.name}</div>
                   <div className="result-reason">{r.reason}</div>
-                  {(r.pokemon.nature || r.pokemon.item) && (
-                    <div className="result-tags">
-                      {r.pokemon.nature && <span className="result-tag">{r.pokemon.nature}</span>}
-                      {r.pokemon.item && <span className="result-tag">{r.pokemon.item}</span>}
-                    </div>
-                  )}
+                  <div className="result-tags">
+                    {r.pokemon.item && <span className="result-tag">持ち物: {r.pokemon.item}</span>}
+                    {r.pokemon.nature && <span className="result-tag">性格: {r.pokemon.nature}</span>}
+                    {r.pokemon.teraType && <span className="result-tag">テラ: {r.pokemon.teraType}</span>}
+                    {r.pokemon.ability && <span className="result-tag">特性: {r.pokemon.ability}</span>}
+                    {r.pokemon.roleTags.map(tag => <span key={tag} className="result-tag">役割: {tag}</span>)}
+                    {[r.pokemon.move1,r.pokemon.move2,r.pokemon.move3,r.pokemon.move4].filter(Boolean).map((move, idx)=><span key={`${move}-${idx}`} className="result-tag">技: {move}</span>)}
+                  </div>
+                  <div className="result-tags">
+                    {r.breakdown.map((b, idx) => <span key={`${b.label}-${idx}`} className="result-tag">{b.label} {b.points > 0 ? `+${b.points}` : b.points}</span>)}
+                  </div>
                 </div>
                 <div className="result-score">
                   <span className="result-score-num result-score-num--green">{r.score}</span>
@@ -1255,18 +1281,6 @@ function BattleScreen({
                 </div>
               </div>
             ))}
-            <div className="result-score-legend">
-              <div className="legend-title">スコアの内訳</div>
-              <div className="legend-grid">
-                <div className="legend-item"><span className="legend-tag">有利対面</span><span className="legend-score">+3</span></div>
-                <div className="legend-item"><span className="legend-tag">2匹以上に強い</span><span className="legend-score">+3</span></div>
-                <div className="legend-item"><span className="legend-tag">攻撃耐性</span><span className="legend-score">+2</span></div>
-                <div className="legend-item"><span className="legend-tag">高速火力</span><span className="legend-score">+2</span></div>
-                <div className="legend-item"><span className="legend-tag">耐久</span><span className="legend-score">+1</span></div>
-                <div className="legend-item"><span className="legend-tag">役割補完</span><span className="legend-score">+1</span></div>
-                <div className="legend-item"><span className="legend-tag">持ち物・技の相性</span><span className="legend-score">+1</span></div>
-              </div>
-            </div>
           </>
         )}
       </div>
