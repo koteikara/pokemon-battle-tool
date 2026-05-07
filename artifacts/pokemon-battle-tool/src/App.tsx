@@ -1,7 +1,19 @@
 import { useState, useEffect, useRef } from "react";
 import { MOVES } from "./lib/moves";
 import { ABILITY_LIST } from "./lib/abilities";
-import { fetchPokemonApiData, getCachedPokemonApiData, getPokemonApiName, type PokemonApiData } from "./lib/pokeApi";
+import {
+  fetchPokemonApiData,
+  getCachedPokemonApiData,
+  getPokemonApiName,
+  type PokemonApiAbility,
+  type PokemonApiData,
+} from "./lib/pokeApi";
+import { guessMoveType } from "./lib/moveTypeGuess";
+import {
+  getTypeEffectiveness,
+  isPokemonType,
+  type PokemonType,
+} from "./lib/typeMatchups";
 
 type Screen = "register" | "battle";
 type BottomView = "home" | "saved" | "guide";
@@ -30,7 +42,26 @@ interface MyPokemon {
   memo: string;
 }
 
-const TERA_TYPES = ["ノーマル", "ほのお", "みず", "でんき", "くさ", "こおり", "かくとう", "どく", "じめん", "ひこう", "エスパー", "むし", "いわ", "ゴースト", "ドラゴン", "あく", "はがね", "フェアリー"] as const;
+const TERA_TYPES = [
+  "ノーマル",
+  "ほのお",
+  "みず",
+  "でんき",
+  "くさ",
+  "こおり",
+  "かくとう",
+  "どく",
+  "じめん",
+  "ひこう",
+  "エスパー",
+  "むし",
+  "いわ",
+  "ゴースト",
+  "ドラゴン",
+  "あく",
+  "はがね",
+  "フェアリー",
+] as const;
 
 // ── Allowed Pokémon (カタカナ) ───────────────────────────────────────────────
 const ALLOWED_POKEMON: string[] = [
@@ -248,12 +279,20 @@ const ALLOWED_POKEMON: string[] = [
   "ケンタロス：格",
   "ポワルン",
 ];
-const ROLE_TAGS = ["物理アタッカー","特殊アタッカー","耐久","サポート","先発向き","詰め要員","クッション"];
+const ROLE_TAGS = [
+  "物理アタッカー",
+  "特殊アタッカー",
+  "耐久",
+  "サポート",
+  "先発向き",
+  "詰め要員",
+  "クッション",
+];
 
 // ひらがな → カタカナ 変換
 function toKatakana(str: string): string {
-  return str.replace(/[\u3041-\u3096]/g, ch =>
-    String.fromCharCode(ch.charCodeAt(0) + 0x60)
+  return str.replace(/[\u3041-\u3096]/g, (ch) =>
+    String.fromCharCode(ch.charCodeAt(0) + 0x60),
   );
 }
 
@@ -262,16 +301,20 @@ function normalize(str: string): string {
   return toKatakana(str.trim()).toLowerCase();
 }
 
-function getOptionSuggestions(input: string, options: readonly string[], emptyLimit = 20): string[] {
+function getOptionSuggestions(
+  input: string,
+  options: readonly string[],
+  emptyLimit = 20,
+): string[] {
   const query = normalize(input);
   if (!query) return options.slice(0, emptyLimit);
-  return options.filter(option => normalize(option).includes(query));
+  return options.filter((option) => normalize(option).includes(query));
 }
 
 function isAllowedMove(name: string): boolean {
   if (!name.trim()) return true;
   const n = normalize(name);
-  return MOVES.some(m => normalize(m) === n);
+  return MOVES.some((m) => normalize(m) === n);
 }
 
 function getMoveSuggestions(input: string): string[] {
@@ -294,7 +337,8 @@ function MoveInput({ value, onChange, placeholder, testId }: MoveInputProps) {
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node))
+        setOpen(false);
     }
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
@@ -317,13 +361,25 @@ function MoveInput({ value, onChange, placeholder, testId }: MoveInputProps) {
         value={value}
         data-testid={testId}
         autoComplete="off"
-        onChange={e => { onChange(e.target.value); setOpen(true); }}
+        onChange={(e) => {
+          onChange(e.target.value);
+          setOpen(true);
+        }}
         onFocus={() => setOpen(true)}
-        onKeyDown={e => {
+        onKeyDown={(e) => {
           if (!open || suggestions.length === 0) return;
-          if (e.key === "ArrowDown") { e.preventDefault(); setActiveIndex(i => Math.min(i + 1, suggestions.length - 1)); }
-          if (e.key === "ArrowUp") { e.preventDefault(); setActiveIndex(i => Math.max(i - 1, 0)); }
-          if (e.key === "Enter") { e.preventDefault(); pick(suggestions[activeIndex]); }
+          if (e.key === "ArrowDown") {
+            e.preventDefault();
+            setActiveIndex((i) => Math.min(i + 1, suggestions.length - 1));
+          }
+          if (e.key === "ArrowUp") {
+            e.preventDefault();
+            setActiveIndex((i) => Math.max(i - 1, 0));
+          }
+          if (e.key === "Enter") {
+            e.preventDefault();
+            pick(suggestions[activeIndex]);
+          }
           if (e.key === "Escape") setOpen(false);
         }}
       />
@@ -342,11 +398,14 @@ function MoveInput({ value, onChange, placeholder, testId }: MoveInputProps) {
           ))}
         </div>
       )}
-      {showError && <div className="field-error-msg">この技は使用可能技リストにありません</div>}
+      {showError && (
+        <div className="field-error-msg">
+          この技は使用可能技リストにありません
+        </div>
+      )}
     </div>
   );
 }
-
 
 function getAbilitySuggestions(input: string): string[] {
   return getOptionSuggestions(input, ABILITY_LIST, 20).slice(0, 50);
@@ -359,7 +418,12 @@ interface AbilityInputProps {
   testId?: string;
 }
 
-function AbilityInput({ value, onChange, placeholder = "例: さめはだ", testId }: AbilityInputProps) {
+function AbilityInput({
+  value,
+  onChange,
+  placeholder = "例: さめはだ",
+  testId,
+}: AbilityInputProps) {
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -367,7 +431,8 @@ function AbilityInput({ value, onChange, placeholder = "例: さめはだ", test
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node))
+        setOpen(false);
     }
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
@@ -388,13 +453,25 @@ function AbilityInput({ value, onChange, placeholder = "例: さめはだ", test
         value={value}
         data-testid={testId}
         autoComplete="off"
-        onChange={e => { onChange(e.target.value); setOpen(true); }}
+        onChange={(e) => {
+          onChange(e.target.value);
+          setOpen(true);
+        }}
         onFocus={() => setOpen(true)}
-        onKeyDown={e => {
+        onKeyDown={(e) => {
           if (!open || suggestions.length === 0) return;
-          if (e.key === "ArrowDown") { e.preventDefault(); setActiveIndex(i => Math.min(i + 1, suggestions.length - 1)); }
-          if (e.key === "ArrowUp") { e.preventDefault(); setActiveIndex(i => Math.max(i - 1, 0)); }
-          if (e.key === "Enter") { e.preventDefault(); pick(suggestions[activeIndex]); }
+          if (e.key === "ArrowDown") {
+            e.preventDefault();
+            setActiveIndex((i) => Math.min(i + 1, suggestions.length - 1));
+          }
+          if (e.key === "ArrowUp") {
+            e.preventDefault();
+            setActiveIndex((i) => Math.max(i - 1, 0));
+          }
+          if (e.key === "Enter") {
+            e.preventDefault();
+            pick(suggestions[activeIndex]);
+          }
           if (e.key === "Escape") setOpen(false);
         }}
       />
@@ -421,13 +498,13 @@ function AbilityInput({ value, onChange, placeholder = "例: さめはだ", test
 function isAllowed(name: string): boolean {
   if (!name.trim()) return false;
   const n = normalize(name);
-  return ALLOWED_POKEMON.some(p => normalize(p) === n);
+  return ALLOWED_POKEMON.some((p) => normalize(p) === n);
 }
 
 function getSuggestions(input: string): string[] {
   if (!input.trim()) return [];
   const n = normalize(input);
-  return ALLOWED_POKEMON.filter(p => normalize(p).includes(n));
+  return ALLOWED_POKEMON.filter((p) => normalize(p).includes(n));
 }
 
 // ── PokemonInput ─────────────────────────────────────────────────────────────
@@ -439,7 +516,13 @@ interface PokemonInputProps {
   style?: React.CSSProperties;
 }
 
-function PokemonInput({ value, onChange, placeholder = "例: ガブリアス", testId, style }: PokemonInputProps) {
+function PokemonInput({
+  value,
+  onChange,
+  placeholder = "例: ガブリアス",
+  testId,
+  style,
+}: PokemonInputProps) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
   const suggestions = getSuggestions(value);
@@ -473,7 +556,9 @@ function PokemonInput({ value, onChange, placeholder = "例: ガブリアス", t
     return (
       <span>
         {name.slice(0, idx)}
-        <span className="suggestion-highlight">{name.slice(idx, idx + q.length)}</span>
+        <span className="suggestion-highlight">
+          {name.slice(idx, idx + q.length)}
+        </span>
         {name.slice(idx + q.length)}
       </span>
     );
@@ -488,15 +573,17 @@ function PokemonInput({ value, onChange, placeholder = "例: ガブリアス", t
         value={value}
         data-testid={testId}
         autoComplete="off"
-        onChange={e => {
+        onChange={(e) => {
           onChange(e.target.value);
           setOpen(true);
         }}
-        onFocus={() => { if (value.trim()) setOpen(true); }}
+        onFocus={() => {
+          if (value.trim()) setOpen(true);
+        }}
       />
       {open && suggestions.length > 0 && (
         <div className="suggestions-list" role="listbox">
-          {suggestions.map(s => (
+          {suggestions.map((s) => (
             <div
               key={s}
               className="suggestion-item"
@@ -527,35 +614,130 @@ function PokemonInput({ value, onChange, placeholder = "例: ガブリアス", t
 // ── Item List ──────────────────────────────────────────────────────────
 const ITEMS: string[] = [
   // ── 道具 ──────────────────────────────────────────────────────────────────
-  "おうじゃのしるし", "かいがらのすず", "かたいいし", "きあいのタスキ", "きあいのハチマキ",
-  "きせきのタネ", "ぎんのこな", "くろいメガネ", "くろおび", "こだわりスカーフ",
-  "じしゃく", "シルクのスカーフ", "しろいハーブ", "しんぴのしずく", "せんせいのツメ",
-  "するどいくちばし", "たべのこし", "でんきだま", "どくバリ", "とけないこおり",
-  "のろいのおふだ", "ひかりのこな", "ピントレンズ", "まがったスプーン", "メタルコート",
-  "メンタルハーブ", "もくたん", "やわらかいすな", "ようせいのハネ", "りゅうのキバ",
+  "おうじゃのしるし",
+  "かいがらのすず",
+  "かたいいし",
+  "きあいのタスキ",
+  "きあいのハチマキ",
+  "きせきのタネ",
+  "ぎんのこな",
+  "くろいメガネ",
+  "くろおび",
+  "こだわりスカーフ",
+  "じしゃく",
+  "シルクのスカーフ",
+  "しろいハーブ",
+  "しんぴのしずく",
+  "せんせいのツメ",
+  "するどいくちばし",
+  "たべのこし",
+  "でんきだま",
+  "どくバリ",
+  "とけないこおり",
+  "のろいのおふだ",
+  "ひかりのこな",
+  "ピントレンズ",
+  "まがったスプーン",
+  "メタルコート",
+  "メンタルハーブ",
+  "もくたん",
+  "やわらかいすな",
+  "ようせいのハネ",
+  "りゅうのキバ",
   // ── きのみ ────────────────────────────────────────────────────────────────
-  "イトケのみ", "ウタンのみ", "オッカのみ", "オレンのみ", "オボンのみ", "カゴのみ",
-  "カシブのみ", "キーのみ", "クラボのみ", "シュカのみ", "ソクノのみ", "タンガのみ",
-  "チーゴのみ", "ナナシのみ", "ナモのみ", "ハバンのみ", "バコウのみ", "ビアーのみ",
-  "ヒメリのみ", "ホズのみ", "モモンのみ", "ヤチェのみ", "ヨプのみ", "ヨロギのみ",
-  "ラムのみ", "リリバのみ", "リンドのみ", "ロゼルのみ",
+  "イトケのみ",
+  "ウタンのみ",
+  "オッカのみ",
+  "オレンのみ",
+  "オボンのみ",
+  "カゴのみ",
+  "カシブのみ",
+  "キーのみ",
+  "クラボのみ",
+  "シュカのみ",
+  "ソクノのみ",
+  "タンガのみ",
+  "チーゴのみ",
+  "ナナシのみ",
+  "ナモのみ",
+  "ハバンのみ",
+  "バコウのみ",
+  "ビアーのみ",
+  "ヒメリのみ",
+  "ホズのみ",
+  "モモンのみ",
+  "ヤチェのみ",
+  "ヨプのみ",
+  "ヨロギのみ",
+  "ラムのみ",
+  "リリバのみ",
+  "リンドのみ",
+  "ロゼルのみ",
   // ── メガストーン ──────────────────────────────────────────────────────────
-  "アブソルナイト", "ウツボットナイト", "エアームドナイト", "エルレイドナイト",
-  "エンブオナイト", "オーダイルナイト", "オニゴーリナイト", "カイリュナイト",
-  "カイロスナイト", "カエンジシナイト", "ガブリアスナイト", "カメックスナイト",
-  "ガメノデスナイト", "カラマネナイト", "ガルーラナイト", "ギャラドスナイト",
-  "クチートナイト", "ゲッコウガナイト", "ゲンガナイト", "サーナイトナイト",
-  "サメハダナイト", "ジガルデナイト", "ジジーロナイト", "シビルドナイト",
-  "シャンデラナイト", "ジュペッタナイト", "スターミナイト", "スピアナイト",
-  "ズルズキナイト", "タイレーツナイト", "タブンネナイト", "チャーレムナイト",
-  "チルタリスナイト", "ディアンシナイト", "デンリュウナイト", "ドラミドナイト",
-  "ドリュウズナイト", "ハガネールナイト", "バクーダナイト", "ハッサムナイト",
-  "バンギラスナイト", "ピクシナイト", "ピジョットナイト", "フーディナイト",
-  "フシギバナイト", "プテラナイト", "ブリガロナイト", "ヘラクロスナイト",
-  "ヘルガナイト", "ペンドラナイト", "ボーマンダナイト", "ボスゴドラナイト",
-  "マフォクシナイト", "ミミロップナイト", "メガニウムナイト", "メタグロスナイト",
-  "ヤドランナイト", "ヤミラミナイト", "ユキノオナイト", "ユキメノコナイト",
-  "ライボルトナイト", "リザードナイトX", "リザードナイトY", "ルカリオナイト",
+  "アブソルナイト",
+  "ウツボットナイト",
+  "エアームドナイト",
+  "エルレイドナイト",
+  "エンブオナイト",
+  "オーダイルナイト",
+  "オニゴーリナイト",
+  "カイリュナイト",
+  "カイロスナイト",
+  "カエンジシナイト",
+  "ガブリアスナイト",
+  "カメックスナイト",
+  "ガメノデスナイト",
+  "カラマネナイト",
+  "ガルーラナイト",
+  "ギャラドスナイト",
+  "クチートナイト",
+  "ゲッコウガナイト",
+  "ゲンガナイト",
+  "サーナイトナイト",
+  "サメハダナイト",
+  "ジガルデナイト",
+  "ジジーロナイト",
+  "シビルドナイト",
+  "シャンデラナイト",
+  "ジュペッタナイト",
+  "スターミナイト",
+  "スピアナイト",
+  "ズルズキナイト",
+  "タイレーツナイト",
+  "タブンネナイト",
+  "チャーレムナイト",
+  "チルタリスナイト",
+  "ディアンシナイト",
+  "デンリュウナイト",
+  "ドラミドナイト",
+  "ドリュウズナイト",
+  "ハガネールナイト",
+  "バクーダナイト",
+  "ハッサムナイト",
+  "バンギラスナイト",
+  "ピクシナイト",
+  "ピジョットナイト",
+  "フーディナイト",
+  "フシギバナイト",
+  "プテラナイト",
+  "ブリガロナイト",
+  "ヘラクロスナイト",
+  "ヘルガナイト",
+  "ペンドラナイト",
+  "ボーマンダナイト",
+  "ボスゴドラナイト",
+  "マフォクシナイト",
+  "ミミロップナイト",
+  "メガニウムナイト",
+  "メタグロスナイト",
+  "ヤドランナイト",
+  "ヤミラミナイト",
+  "ユキノオナイト",
+  "ユキメノコナイト",
+  "ライボルトナイト",
+  "リザードナイトX",
+  "リザードナイトY",
+  "ルカリオナイト",
   "ルチャブルナイト",
 ];
 
@@ -571,7 +753,7 @@ function ItemPicker({ value, onChange }: ItemPickerProps) {
   const searchRef = useRef<HTMLInputElement>(null);
 
   const filtered = query.trim()
-    ? ITEMS.filter(it => toKatakana(it).includes(toKatakana(query.trim())))
+    ? ITEMS.filter((it) => toKatakana(it).includes(toKatakana(query.trim())))
     : ITEMS;
 
   function select(item: string) {
@@ -601,7 +783,9 @@ function ItemPicker({ value, onChange }: ItemPickerProps) {
   // Prevent body scroll when modal open
   useEffect(() => {
     document.body.style.overflow = open ? "hidden" : "";
-    return () => { document.body.style.overflow = ""; };
+    return () => {
+      document.body.style.overflow = "";
+    };
   }, [open]);
 
   return (
@@ -612,9 +796,18 @@ function ItemPicker({ value, onChange }: ItemPickerProps) {
         onClick={() => setOpen(true)}
         data-testid="item-picker-trigger"
       >
-        <span className="item-picker-value">{value || "持ち物を選択（タップして選ぶ）"}</span>
+        <span className="item-picker-value">
+          {value || "持ち物を選択（タップして選ぶ）"}
+        </span>
         {value ? (
-          <span className="item-picker-clear-btn" onClick={clearValue} role="button" aria-label="クリア">✕</span>
+          <span
+            className="item-picker-clear-btn"
+            onClick={clearValue}
+            role="button"
+            aria-label="クリア"
+          >
+            ✕
+          </span>
         ) : (
           <span className="item-picker-arrow">›</span>
         )}
@@ -622,11 +815,20 @@ function ItemPicker({ value, onChange }: ItemPickerProps) {
 
       {open && (
         <div className="item-picker-backdrop" onClick={closeModal}>
-          <div className="item-picker-sheet" onClick={e => e.stopPropagation()}>
+          <div
+            className="item-picker-sheet"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="item-picker-handle" />
             <div className="item-picker-header">
               <span className="item-picker-title">持ち物を選ぶ</span>
-              <button className="item-picker-close" onClick={closeModal} aria-label="閉じる">✕</button>
+              <button
+                className="item-picker-close"
+                onClick={closeModal}
+                aria-label="閉じる"
+              >
+                ✕
+              </button>
             </div>
             <div className="item-picker-search-wrap">
               <span className="item-picker-search-icon">🔍</span>
@@ -635,18 +837,25 @@ function ItemPicker({ value, onChange }: ItemPickerProps) {
                 className="item-picker-search"
                 placeholder="検索..."
                 value={query}
-                onChange={e => setQuery(e.target.value)}
+                onChange={(e) => setQuery(e.target.value)}
                 autoComplete="off"
               />
               {query && (
-                <button className="item-picker-search-clear" onClick={() => setQuery("")}>✕</button>
+                <button
+                  className="item-picker-search-clear"
+                  onClick={() => setQuery("")}
+                >
+                  ✕
+                </button>
               )}
             </div>
             <div className="item-picker-list" role="listbox">
               {filtered.length === 0 ? (
-                <div className="item-picker-empty">「{query}」は見つかりません</div>
+                <div className="item-picker-empty">
+                  「{query}」は見つかりません
+                </div>
               ) : (
-                filtered.map(item => (
+                filtered.map((item) => (
                   <div
                     key={item}
                     className={`item-picker-option${item === value ? " item-picker-option--selected" : ""}`}
@@ -656,7 +865,9 @@ function ItemPicker({ value, onChange }: ItemPickerProps) {
                     data-testid={`item-option-${item}`}
                   >
                     <span>{item}</span>
-                    {item === value && <span className="item-picker-check">✓</span>}
+                    {item === value && (
+                      <span className="item-picker-check">✓</span>
+                    )}
                   </div>
                 ))
               )}
@@ -669,127 +880,149 @@ function ItemPicker({ value, onChange }: ItemPickerProps) {
 }
 
 const NATURES = [
-  "がんばりや", "さみしがり", "ゆうかん", "いじっぱり", "やんちゃ",
-  "ずぶとい", "てれや", "のんき", "わんぱく", "のうてんき",
-  "おくびょう", "せっかち", "まじめ", "ようき", "むじゃき",
-  "ひかえめ", "おっとり", "れいせい", "おだやか", "うっかりや",
-  "おとなしい", "なまいき", "しんちょう", "きまぐれ", "なんでもすき",
+  "がんばりや",
+  "さみしがり",
+  "ゆうかん",
+  "いじっぱり",
+  "やんちゃ",
+  "ずぶとい",
+  "てれや",
+  "のんき",
+  "わんぱく",
+  "のうてんき",
+  "おくびょう",
+  "せっかち",
+  "まじめ",
+  "ようき",
+  "むじゃき",
+  "ひかえめ",
+  "おっとり",
+  "れいせい",
+  "おだやか",
+  "うっかりや",
+  "おとなしい",
+  "なまいき",
+  "しんちょう",
+  "きまぐれ",
+  "なんでもすき",
 ];
 
 // ── Scoring System ────────────────────────────────────────────────────────────
 interface PokemonTags {
-  fast?: boolean;       // 素早さが高い → +2
-  attacker?: boolean;   // 攻撃力が高い → +2
-  lead?: boolean;       // 先発向き     → +3
-  defensive?: boolean;  // 受け性能が高い → +1
-  meta?: boolean;       // メタ上位・伝説 → +3
+  fast?: boolean; // 素早さが高い → +2
+  attacker?: boolean; // 攻撃力が高い → +2
+  lead?: boolean; // 先発向き     → +3
+  defensive?: boolean; // 受け性能が高い → +1
+  meta?: boolean; // メタ上位・伝説 → +3
 }
 
 const POKEMON_SCORE_TABLE: Record<string, PokemonTags> = {
   // ─── 最強メタ ─────────────────────────────────────────────────────────────
-  "ガブリアス":       { fast: true, attacker: true, lead: true, meta: true },
-  "メガガブリアス":   { fast: true, attacker: true, meta: true },
-  "カイリュー":       { attacker: true, meta: true },
-  "メガカイリュー":   { attacker: true, meta: true },
-  "ミミッキュ":       { lead: true, meta: true },
-  "ドラパルト":       { fast: true, attacker: true, lead: true, meta: true },
-  "ガオガエン":       { attacker: true, lead: true, meta: true },
-  "ウルガモス":       { fast: true, attacker: true, meta: true },
-  "バンギラス":       { attacker: true, defensive: true, meta: true },
-  "メガバンギラス":   { attacker: true, defensive: true, meta: true },
-  "ゲッコウガ":       { fast: true, attacker: true, meta: true },
-  "メガゲッコウガ":   { fast: true, attacker: true, meta: true },
-  "サザンドラ":       { fast: true, attacker: true, meta: true },
-  "メタグロス":       { attacker: true, meta: true },
-  "メガメタグロス":   { attacker: true, lead: true, meta: true },
-  "ギルガルド":       { defensive: true, meta: true },
-  "ジャラランガ":     { fast: true, attacker: true, meta: true },
-  "ドリュウズ":       { fast: true, attacker: true, meta: true },
-  "メガドリュウズ":   { fast: true, attacker: true, meta: true },
-  "マニューラ":       { fast: true, attacker: true, meta: true },
-  "ガチグマ":         { attacker: true, meta: true },
-  "ブリジュラス":     { attacker: true, defensive: true, meta: true },
-  "カミツオロチ":     { defensive: true, meta: true },
-  "マスカーニャ":     { fast: true, attacker: true, meta: true },
-  "ウェーニバル":     { attacker: true, meta: true },
-  "グレンアルマ":     { fast: true, attacker: true, meta: true },
-  "メガゲンガー":     { fast: true, attacker: true, meta: true },
-  "メガルカリオ":     { fast: true, attacker: true, meta: true },
-  "メガルカリオZ":    { fast: true, attacker: true, meta: true },
-  "メガヘラクロス":   { attacker: true, meta: true },
-  "ドドゲザン":       { attacker: true, meta: true },
-  "オオニューラ":     { fast: true, attacker: true, meta: true },
-  "イダイトウ♂":     { attacker: true, meta: true },
-  "イダイトウ♀":     { fast: true, attacker: true, meta: true },
-  "ジュナイパー":     { fast: true, attacker: true, meta: true },
+  ガブリアス: { fast: true, attacker: true, lead: true, meta: true },
+  メガガブリアス: { fast: true, attacker: true, meta: true },
+  カイリュー: { attacker: true, meta: true },
+  メガカイリュー: { attacker: true, meta: true },
+  ミミッキュ: { lead: true, meta: true },
+  ドラパルト: { fast: true, attacker: true, lead: true, meta: true },
+  ガオガエン: { attacker: true, lead: true, meta: true },
+  ウルガモス: { fast: true, attacker: true, meta: true },
+  バンギラス: { attacker: true, defensive: true, meta: true },
+  メガバンギラス: { attacker: true, defensive: true, meta: true },
+  ゲッコウガ: { fast: true, attacker: true, meta: true },
+  メガゲッコウガ: { fast: true, attacker: true, meta: true },
+  サザンドラ: { fast: true, attacker: true, meta: true },
+  メタグロス: { attacker: true, meta: true },
+  メガメタグロス: { attacker: true, lead: true, meta: true },
+  ギルガルド: { defensive: true, meta: true },
+  ジャラランガ: { fast: true, attacker: true, meta: true },
+  ドリュウズ: { fast: true, attacker: true, meta: true },
+  メガドリュウズ: { fast: true, attacker: true, meta: true },
+  マニューラ: { fast: true, attacker: true, meta: true },
+  ガチグマ: { attacker: true, meta: true },
+  ブリジュラス: { attacker: true, defensive: true, meta: true },
+  カミツオロチ: { defensive: true, meta: true },
+  マスカーニャ: { fast: true, attacker: true, meta: true },
+  ウェーニバル: { attacker: true, meta: true },
+  グレンアルマ: { fast: true, attacker: true, meta: true },
+  メガゲンガー: { fast: true, attacker: true, meta: true },
+  メガルカリオ: { fast: true, attacker: true, meta: true },
+  メガルカリオZ: { fast: true, attacker: true, meta: true },
+  メガヘラクロス: { attacker: true, meta: true },
+  ドドゲザン: { attacker: true, meta: true },
+  オオニューラ: { fast: true, attacker: true, meta: true },
+  "イダイトウ♂": { attacker: true, meta: true },
+  "イダイトウ♀": { fast: true, attacker: true, meta: true },
+  ジュナイパー: { fast: true, attacker: true, meta: true },
   "ジュナイパー(ヒスイ)": { attacker: true, meta: true },
-  "ルカリオ":         { fast: true, attacker: true },
-  "ゲンガー":         { fast: true, attacker: true },
-  "ヘラクロス":       { attacker: true },
-  "バサギリ":         { fast: true, attacker: true },
-  "ゾロアーク":       { fast: true, attacker: true },
+  ルカリオ: { fast: true, attacker: true },
+  ゲンガー: { fast: true, attacker: true },
+  ヘラクロス: { attacker: true },
+  バサギリ: { fast: true, attacker: true },
+  ゾロアーク: { fast: true, attacker: true },
   "ゾロアーク(ヒスイ)": { fast: true, attacker: true },
   // ─── 先発向き ──────────────────────────────────────────────────────────────
-  "カバルドン":   { lead: true, defensive: true },
-  "エルフーン":   { lead: true, fast: true },
-  "コータス":     { lead: true, defensive: true },
-  "アーマーガア": { lead: true, defensive: true },
-  "ミカルゲ":     { lead: true },
-  "クレッフィ":   { lead: true },
-  "ペリッパー":   { lead: true },
-  "ユキノオー":   { lead: true },
-  "メガユキノオー": { lead: true, attacker: true },
+  カバルドン: { lead: true, defensive: true },
+  エルフーン: { lead: true, fast: true },
+  コータス: { lead: true, defensive: true },
+  アーマーガア: { lead: true, defensive: true },
+  ミカルゲ: { lead: true },
+  クレッフィ: { lead: true },
+  ペリッパー: { lead: true },
+  ユキノオー: { lead: true },
+  メガユキノオー: { lead: true, attacker: true },
   // ─── 受け・耐久 ────────────────────────────────────────────────────────────
-  "ドヒドイデ":   { defensive: true },
-  "エアームド":   { defensive: true },
-  "メガエアームド": { defensive: true },
-  "ヤドラン":     { defensive: true },
-  "メガヤドラン": { defensive: true },
+  ドヒドイデ: { defensive: true },
+  エアームド: { defensive: true },
+  メガエアームド: { defensive: true },
+  ヤドラン: { defensive: true },
+  メガヤドラン: { defensive: true },
   "ヤドラン(ガラル)": { defensive: true },
-  "ブリムオン":   { defensive: true },
-  "キョジオーン": { defensive: true },
-  "ヘイラッシャ": { defensive: true },
-  "バンバドロ":   { defensive: true },
-  "ヌメルゴン":   { defensive: true },
-  "ハガネール":   { defensive: true },
-  "メガハガネール": { defensive: true },
-  "グライオン":   { fast: true, defensive: true },
-  "カイロス":     { defensive: true },
-  "マリルリ":     { defensive: true },
-  "ニョロトノ":   { defensive: true },
-  "ブラッキー":   { defensive: true },
-  "エーフィ":     { fast: true },
-  "ポットデス":   { defensive: true },
-  "オーロット":   { defensive: true },
-  "リキキリン":   { defensive: true },
-  "ヤドキング":   { defensive: true },
+  ブリムオン: { defensive: true },
+  キョジオーン: { defensive: true },
+  ヘイラッシャ: { defensive: true },
+  バンバドロ: { defensive: true },
+  ヌメルゴン: { defensive: true },
+  ハガネール: { defensive: true },
+  メガハガネール: { defensive: true },
+  グライオン: { fast: true, defensive: true },
+  カイロス: { defensive: true },
+  マリルリ: { defensive: true },
+  ニョロトノ: { defensive: true },
+  ブラッキー: { defensive: true },
+  エーフィ: { fast: true },
+  ポットデス: { defensive: true },
+  オーロット: { defensive: true },
+  リキキリン: { defensive: true },
+  ヤドキング: { defensive: true },
   // ─── 高速アタッカー ───────────────────────────────────────────────────────
-  "ファイアロー": { fast: true, attacker: true },
-  "ウインディ":   { fast: true, attacker: true },
+  ファイアロー: { fast: true, attacker: true },
+  ウインディ: { fast: true, attacker: true },
   "ウインディ(ヒスイ)": { fast: true, attacker: true },
-  "サンダース":   { fast: true },
-  "リーフィア":   { fast: true },
-  "スターミー":   { fast: true },
-  "メガスターミー": { fast: true, attacker: true },
-  "カットロトム": { fast: true, attacker: true },
-  "スピンロトム": { fast: true, attacker: true },
+  サンダース: { fast: true },
+  リーフィア: { fast: true },
+  スターミー: { fast: true },
+  メガスターミー: { fast: true, attacker: true },
+  カットロトム: { fast: true, attacker: true },
+  スピンロトム: { fast: true, attacker: true },
   // ─── 物理アタッカー ───────────────────────────────────────────────────────
-  "カイリキー":   { attacker: true },
-  "ローブシン":   { attacker: true },
-  "ドサイドン":   { attacker: true },
-  "マンムー":     { attacker: true, fast: true },
-  "ガブリアスZ":  { attacker: true, fast: true, meta: true },
-  "カビゴン":     { attacker: true, defensive: true },
-  "ケンタロス":   { attacker: true, fast: true },
-  "ギャラドス":   { attacker: true },
-  "メガギャラドス": { attacker: true, meta: true },
-  "ヘルガー":     { fast: true, attacker: true },
-  "メガヘルガー": { fast: true, attacker: true },
+  カイリキー: { attacker: true },
+  ローブシン: { attacker: true },
+  ドサイドン: { attacker: true },
+  マンムー: { attacker: true, fast: true },
+  ガブリアスZ: { attacker: true, fast: true, meta: true },
+  カビゴン: { attacker: true, defensive: true },
+  ケンタロス: { attacker: true, fast: true },
+  ギャラドス: { attacker: true },
+  メガギャラドス: { attacker: true, meta: true },
+  ヘルガー: { fast: true, attacker: true },
+  メガヘルガー: { fast: true, attacker: true },
 };
 
 function scorePokemon(name: string): { score: number; tags: PokemonTags } {
   const norm = normalize(name);
-  const key = Object.keys(POKEMON_SCORE_TABLE).find(k => normalize(k) === norm);
+  const key = Object.keys(POKEMON_SCORE_TABLE).find(
+    (k) => normalize(k) === norm,
+  );
   const tags: PokemonTags = key ? POKEMON_SCORE_TABLE[key] : {};
   let score = 1;
   if (tags.meta) score += 3;
@@ -811,7 +1044,13 @@ function buildReason(tags: PokemonTags): string {
   return parts.length > 0 ? parts.join("・") : "汎用性が高い";
 }
 
-type OppPrediction = { name: string; score: number; reason: string; role: string; caution: string };
+type OppPrediction = {
+  name: string;
+  score: number;
+  reason: string;
+  role: string;
+  caution: string;
+};
 
 type PokemonMeta = { roles: string[]; note: string; caution: string };
 
@@ -821,50 +1060,140 @@ const DEFAULT_POKEMON_META: PokemonMeta = {
   caution: "型が読みにくいため、技範囲に注意",
 };
 
-const HIGH_PICK_PRESSURE_POKEMON = new Set([
-  "ガブリアス", "アシレーヌ", "リザードン", "ブリジュラス", "アーマーガア", "カバルドン", "ゲンガー", "カイリュー",
-  "ギルガルド", "ハッサム", "マスカーニャ", "ドドゲザン", "ミミッキュ", "サザンドラ", "ウォッシュロトム", "ブラッキー",
-  "ルカリオ", "ギャラドス", "ゲッコウガ", "ウルガモス", "バンギラス", "ドラパルト", "ドヒドイデ", "ペリッパー", "マリルリ",
-  "カビゴン", "サーナイト", "ガオガエン", "ミロカロス", "ジャローダ", "シャンデラ", "メタモン", "イルカマン", "フーディン",
-  "ゴウカザル", "ファイアロー", "キョジオーン", "グライオン", "ジュナイパー（ヒスイ）", "ジャラランガ", "コータス", "ワルビアル",
-  "ニョロトノ", "ゾロアーク", "ミカルゲ", "クレッフィ", "ピカチュウ", "ロトム",
-].map(normalize));
+const HIGH_PICK_PRESSURE_POKEMON = new Set(
+  [
+    "ガブリアス",
+    "アシレーヌ",
+    "リザードン",
+    "ブリジュラス",
+    "アーマーガア",
+    "カバルドン",
+    "ゲンガー",
+    "カイリュー",
+    "ギルガルド",
+    "ハッサム",
+    "マスカーニャ",
+    "ドドゲザン",
+    "ミミッキュ",
+    "サザンドラ",
+    "ウォッシュロトム",
+    "ブラッキー",
+    "ルカリオ",
+    "ギャラドス",
+    "ゲッコウガ",
+    "ウルガモス",
+    "バンギラス",
+    "ドラパルト",
+    "ドヒドイデ",
+    "ペリッパー",
+    "マリルリ",
+    "カビゴン",
+    "サーナイト",
+    "ガオガエン",
+    "ミロカロス",
+    "ジャローダ",
+    "シャンデラ",
+    "メタモン",
+    "イルカマン",
+    "フーディン",
+    "ゴウカザル",
+    "ファイアロー",
+    "キョジオーン",
+    "グライオン",
+    "ジュナイパー（ヒスイ）",
+    "ジャラランガ",
+    "コータス",
+    "ワルビアル",
+    "ニョロトノ",
+    "ゾロアーク",
+    "ミカルゲ",
+    "クレッフィ",
+    "ピカチュウ",
+    "ロトム",
+  ].map(normalize),
+);
 
 const POKEMON_META: Record<string, PokemonMeta> = {
-  "ガブリアス": { roles: ["物理アタッカー", "高速アタッカー", "対面性能"], note: "高速物理アタッカーとして選出されやすく、広い相手に対応しやすい", caution: "じめん・ドラゴン打点に注意" },
-  "アーマーガア": { roles: ["受け", "物理受け", "サイクル"], note: "物理方面の受け役として選出されやすい", caution: "長期戦や詰ませ性能に注意" },
-  "ゲンガー": { roles: ["特殊アタッカー", "高速アタッカー", "対面性能"], note: "高速特殊アタッカーとして崩し性能が高い", caution: "状態異常や高火力特殊技に注意" },
-  "カバルドン": { roles: ["受け", "起点作成", "天候要員"], note: "起点作成と天候展開で試合を作りやすい", caution: "ステルスロック展開に注意" },
-  "ペリッパー": { roles: ["起点作成", "天候要員", "サイクル"], note: "雨展開の始動役として選出されやすい", caution: "天候エースの同時選出に注意" },
-  "ニョロトノ": { roles: ["天候要員", "サイクル"], note: "雨展開の軸として選出されやすい", caution: "雨下での高火力技に注意" },
-  "ドラパルト": { roles: ["高速アタッカー", "物理アタッカー", "特殊アタッカー", "対面性能"], note: "高速高火力で初手から終盤まで通しやすい", caution: "型の判別が難しいため技範囲に注意" },
-  "ウルガモス": { roles: ["特殊アタッカー", "詰め性能", "積みアタッカー"], note: "積みからの全抜き性能が高く選出されやすい", caution: "ちょうのまい展開と終盤の全抜きに注意" },
-  "ギャラドス": { roles: ["物理アタッカー", "積みアタッカー", "対面性能"], note: "積み展開から詰めに移行しやすい", caution: "りゅうのまい後の制圧力に注意" },
+  ガブリアス: {
+    roles: ["物理アタッカー", "高速アタッカー", "対面性能"],
+    note: "高速物理アタッカーとして選出されやすく、広い相手に対応しやすい",
+    caution: "じめん・ドラゴン打点に注意",
+  },
+  アーマーガア: {
+    roles: ["受け", "物理受け", "サイクル"],
+    note: "物理方面の受け役として選出されやすい",
+    caution: "長期戦や詰ませ性能に注意",
+  },
+  ゲンガー: {
+    roles: ["特殊アタッカー", "高速アタッカー", "対面性能"],
+    note: "高速特殊アタッカーとして崩し性能が高い",
+    caution: "状態異常や高火力特殊技に注意",
+  },
+  カバルドン: {
+    roles: ["受け", "起点作成", "天候要員"],
+    note: "起点作成と天候展開で試合を作りやすい",
+    caution: "ステルスロック展開に注意",
+  },
+  ペリッパー: {
+    roles: ["起点作成", "天候要員", "サイクル"],
+    note: "雨展開の始動役として選出されやすい",
+    caution: "天候エースの同時選出に注意",
+  },
+  ニョロトノ: {
+    roles: ["天候要員", "サイクル"],
+    note: "雨展開の軸として選出されやすい",
+    caution: "雨下での高火力技に注意",
+  },
+  ドラパルト: {
+    roles: ["高速アタッカー", "物理アタッカー", "特殊アタッカー", "対面性能"],
+    note: "高速高火力で初手から終盤まで通しやすい",
+    caution: "型の判別が難しいため技範囲に注意",
+  },
+  ウルガモス: {
+    roles: ["特殊アタッカー", "詰め性能", "積みアタッカー"],
+    note: "積みからの全抜き性能が高く選出されやすい",
+    caution: "ちょうのまい展開と終盤の全抜きに注意",
+  },
+  ギャラドス: {
+    roles: ["物理アタッカー", "積みアタッカー", "対面性能"],
+    note: "積み展開から詰めに移行しやすい",
+    caution: "りゅうのまい後の制圧力に注意",
+  },
 };
 
 function getPokemonMeta(name: string): PokemonMeta {
   const norm = normalize(name);
-  const key = Object.keys(POKEMON_META).find(k => normalize(k) === norm);
+  const key = Object.keys(POKEMON_META).find((k) => normalize(k) === norm);
   return key ? POKEMON_META[key] : DEFAULT_POKEMON_META;
 }
 
 function predictOpponent(slots: string[]): OppPrediction[] {
   const uniqueValid = slots
-    .map(s => s.trim())
-    .filter(s => s && isAllowed(s))
+    .map((s) => s.trim())
+    .filter((s) => s && isAllowed(s))
     .reduce<string[]>((acc, name) => {
-      if (!acc.some(existing => normalize(existing) === normalize(name))) acc.push(name);
+      if (!acc.some((existing) => normalize(existing) === normalize(name)))
+        acc.push(name);
       return acc;
     }, []);
   if (uniqueValid.length === 0) return [];
 
-  const metas = uniqueValid.map(name => ({ name, meta: getPokemonMeta(name) }));
-  const hasPhysical = metas.some(p => p.meta.roles.includes("物理アタッカー"));
-  const hasSpecial = metas.some(p => p.meta.roles.includes("特殊アタッカー"));
-  const hasDefensive = metas.some(p => p.meta.roles.includes("受け"));
-  const hasSetter = metas.some(p => p.meta.roles.includes("起点作成"));
-  const hasWeather = metas.some(p => p.meta.roles.includes("天候要員"));
-  const hasWeatherAbuser = metas.some(p => p.meta.roles.some(r => ["高速アタッカー", "特殊アタッカー", "物理アタッカー"].includes(r)));
+  const metas = uniqueValid.map((name) => ({
+    name,
+    meta: getPokemonMeta(name),
+  }));
+  const hasPhysical = metas.some((p) =>
+    p.meta.roles.includes("物理アタッカー"),
+  );
+  const hasSpecial = metas.some((p) => p.meta.roles.includes("特殊アタッカー"));
+  const hasDefensive = metas.some((p) => p.meta.roles.includes("受け"));
+  const hasSetter = metas.some((p) => p.meta.roles.includes("起点作成"));
+  const hasWeather = metas.some((p) => p.meta.roles.includes("天候要員"));
+  const hasWeatherAbuser = metas.some((p) =>
+    p.meta.roles.some((r) =>
+      ["高速アタッカー", "特殊アタッカー", "物理アタッカー"].includes(r),
+    ),
+  );
 
   const scored = metas.map(({ name, meta }) => {
     let score = 50;
@@ -877,112 +1206,347 @@ function predictOpponent(slots: string[]): OppPrediction[] {
     if (meta.roles.includes("対面性能")) score += 15;
     if (HIGH_PICK_PRESSURE_POKEMON.has(normalize(name))) score += 15;
 
-    if (hasPhysical && hasSpecial && (meta.roles.includes("物理アタッカー") || meta.roles.includes("特殊アタッカー"))) score += 5;
-    if (hasDefensive && (meta.roles.includes("物理アタッカー") || meta.roles.includes("特殊アタッカー") || meta.roles.includes("高速アタッカー"))) score += 5;
+    if (
+      hasPhysical &&
+      hasSpecial &&
+      (meta.roles.includes("物理アタッカー") ||
+        meta.roles.includes("特殊アタッカー"))
+    )
+      score += 5;
+    if (
+      hasDefensive &&
+      (meta.roles.includes("物理アタッカー") ||
+        meta.roles.includes("特殊アタッカー") ||
+        meta.roles.includes("高速アタッカー"))
+    )
+      score += 5;
     if (hasSetter && meta.roles.includes("積みアタッカー")) score += 10;
-    if (hasWeather && hasWeatherAbuser && (meta.roles.includes("天候要員") || meta.roles.includes("高速アタッカー") || meta.roles.includes("特殊アタッカー") || meta.roles.includes("物理アタッカー"))) score += 10;
+    if (
+      hasWeather &&
+      hasWeatherAbuser &&
+      (meta.roles.includes("天候要員") ||
+        meta.roles.includes("高速アタッカー") ||
+        meta.roles.includes("特殊アタッカー") ||
+        meta.roles.includes("物理アタッカー"))
+    )
+      score += 10;
 
-    return { name, score, reason: meta.note, role: meta.roles.join(" / "), caution: meta.caution };
+    return {
+      name,
+      score,
+      reason: meta.note,
+      role: meta.roles.join(" / "),
+      caution: meta.caution,
+    };
   });
 
-  return scored.sort((a, b) => b.score - a.score).slice(0, Math.min(3, scored.length));
+  return scored
+    .sort((a, b) => b.score - a.score)
+    .slice(0, Math.min(3, scored.length));
 }
 
 // ── My Team Recommendation ────────────────────────────────────────────────────
 type ScoreBreakdown = { label: string; points: number };
-type MyRecommendation = { pokemon: MyPokemon; score: number; reason: string; breakdown: ScoreBreakdown[] };
+type MyRecommendation = {
+  pokemon: MyPokemon;
+  score: number;
+  reason: string;
+  breakdown: ScoreBreakdown[];
+};
 
 function hasAnyText(source: string, patterns: string[]): boolean {
   const text = source.toLowerCase();
-  return patterns.some(pattern => text.includes(pattern));
+  return patterns.some((pattern) => text.includes(pattern));
 }
 
-function scorePlayerPokemon(player: MyPokemon, predictedOpponents: OppPrediction[]): MyRecommendation {
+function getAbilityDetailsForDisplay(
+  data: PokemonApiData,
+): PokemonApiAbility[] {
+  if (data.abilityDetails?.length) return data.abilityDetails;
+  return data.abilities.map((name) => ({
+    name,
+    apiName: name,
+    isHidden: false,
+  }));
+}
+
+function getKnownPokemonTypes(name: string): PokemonType[] {
+  const data = getCachedPokemonApiData(name);
+  return data?.types.filter(isPokemonType) ?? [];
+}
+
+function scoreTypeMatchups(
+  player: MyPokemon,
+  predictedOpponents: OppPrediction[],
+): ScoreBreakdown[] {
+  const moves = [player.move1, player.move2, player.move3, player.move4]
+    .map((move) => ({ name: move, type: guessMoveType(move) }))
+    .filter(
+      (move): move is { name: string; type: PokemonType } =>
+        Boolean(move.name.trim()) && move.type !== null,
+    );
+  if (moves.length === 0) return [];
+
+  const typedOpponents = predictedOpponents
+    .slice(0, 3)
+    .map((opp, index) => ({
+      ...opp,
+      index,
+      types: getKnownPokemonTypes(opp.name),
+    }))
+    .filter((opp) => opp.types.length > 0);
+  if (typedOpponents.length === 0) return [];
+
+  const breakdown: ScoreBreakdown[] = [];
+  let superEffectiveCount = 0;
+  let neutralOrBetterCount = 0;
+  let topOpponentBestEffectiveness: number | null = null;
+
+  typedOpponents.forEach((opp) => {
+    const best = moves.reduce<{
+      type: PokemonType;
+      effectiveness: number;
+    } | null>((current, move) => {
+      const effectiveness = getTypeEffectiveness(move.type, opp.types);
+      if (!current || effectiveness > current.effectiveness)
+        return { type: move.type, effectiveness };
+      return current;
+    }, null);
+
+    if (!best) return;
+    if (opp.index === 0) topOpponentBestEffectiveness = best.effectiveness;
+    if (best.effectiveness >= 1) neutralOrBetterCount += 1;
+
+    if (best.effectiveness >= 4) {
+      superEffectiveCount += 1;
+      breakdown.push({ label: `${opp.name}に${best.type}4倍`, points: 18 });
+    } else if (best.effectiveness >= 2) {
+      superEffectiveCount += 1;
+      breakdown.push({ label: `${opp.name}に${best.type}2倍`, points: 10 });
+    }
+  });
+
+  if (topOpponentBestEffectiveness !== null) {
+    if (topOpponentBestEffectiveness >= 2)
+      breakdown.push({ label: "相手予測1位に抜群", points: 8 });
+    if (topOpponentBestEffectiveness >= 4)
+      breakdown.push({ label: "相手予測1位に4倍", points: 8 });
+    if (topOpponentBestEffectiveness < 1)
+      breakdown.push({ label: "相手予測1位への有効打不足", points: -5 });
+  }
+
+  if (superEffectiveCount >= 2)
+    breakdown.push({ label: `相手${superEffectiveCount}匹に抜群`, points: 10 });
+  if (typedOpponents.length >= 3 && neutralOrBetterCount >= 3)
+    breakdown.push({ label: "相手予測3匹に等倍以上", points: 5 });
+
+  const allMovesResisted = typedOpponents.every((opp) =>
+    moves.every((move) => getTypeEffectiveness(move.type, opp.types) <= 0.5),
+  );
+  if (allMovesResisted)
+    breakdown.push({ label: "タイプ有効打不足", points: -10 });
+
+  return breakdown;
+}
+
+function scorePlayerPokemon(
+  player: MyPokemon,
+  predictedOpponents: OppPrediction[],
+): MyRecommendation {
   const breakdown: ScoreBreakdown[] = [{ label: "基本点", points: 50 }];
 
   const roleText = `${player.roleTags.join(" ")} ${player.memo}`;
-  const moves = [player.move1, player.move2, player.move3, player.move4].filter(Boolean);
+  const moves = [player.move1, player.move2, player.move3, player.move4].filter(
+    Boolean,
+  );
   const moveText = moves.join(" ").toLowerCase();
 
   if (player.evA >= 24) breakdown.push({ label: "物理火力", points: 8 });
   if (player.evC >= 24) breakdown.push({ label: "特殊火力", points: 8 });
   if (player.evS >= 24) breakdown.push({ label: "高速", points: 8 });
-  if (player.evH >= 24 || player.evB >= 24 || player.evD >= 24) breakdown.push({ label: "耐久", points: 6 });
+  if (player.evH >= 24 || player.evB >= 24 || player.evD >= 24)
+    breakdown.push({ label: "耐久", points: 6 });
 
   const apiData = getCachedPokemonApiData(player.name);
   if (apiData) breakdown.push(...getPokemonApiRoleBonuses(apiData));
 
-  if (hasAnyText(roleText, ["アタッカー"])) breakdown.push({ label: "攻撃役", points: 8 });
-  if (hasAnyText(roleText, ["物理"])) breakdown.push({ label: "物理役", points: 5 });
-  if (hasAnyText(roleText, ["特殊"])) breakdown.push({ label: "特殊役", points: 5 });
-  if (hasAnyText(roleText, ["耐久", "受け"])) breakdown.push({ label: "耐久役", points: 6 });
-  if (hasAnyText(roleText, ["先発"])) breakdown.push({ label: "先発適性", points: 5 });
-  if (hasAnyText(roleText, ["詰め"])) breakdown.push({ label: "詰め役", points: 5 });
-  if (hasAnyText(roleText, ["サポート"])) breakdown.push({ label: "補助役", points: 4 });
+  if (hasAnyText(roleText, ["アタッカー"]))
+    breakdown.push({ label: "攻撃役", points: 8 });
+  if (hasAnyText(roleText, ["物理"]))
+    breakdown.push({ label: "物理役", points: 5 });
+  if (hasAnyText(roleText, ["特殊"]))
+    breakdown.push({ label: "特殊役", points: 5 });
+  if (hasAnyText(roleText, ["耐久", "受け"]))
+    breakdown.push({ label: "耐久役", points: 6 });
+  if (hasAnyText(roleText, ["先発"]))
+    breakdown.push({ label: "先発適性", points: 5 });
+  if (hasAnyText(roleText, ["詰め"]))
+    breakdown.push({ label: "詰め役", points: 5 });
+  if (hasAnyText(roleText, ["サポート"]))
+    breakdown.push({ label: "補助役", points: 4 });
 
   const item = player.item;
   const itemBonus: Record<string, ScoreBreakdown> = {
-    "きあいのタスキ": { label: "行動保証", points: 8 }, "こだわりスカーフ": { label: "高速補強", points: 8 },
-    "たべのこし": { label: "継戦能力", points: 6 }, "オボンのみ": { label: "耐久補助", points: 5 },
-    "いのちのたま": { label: "火力補強", points: 6 }, "こだわりハチマキ": { label: "物理火力", points: 7 },
-    "こだわりメガネ": { label: "特殊火力", points: 7 }, "とつげきチョッキ": { label: "特殊耐久", points: 6 },
-    "ゴツゴツメット": { label: "物理受け", points: 5 },
+    きあいのタスキ: { label: "行動保証", points: 8 },
+    こだわりスカーフ: { label: "高速補強", points: 8 },
+    たべのこし: { label: "継戦能力", points: 6 },
+    オボンのみ: { label: "耐久補助", points: 5 },
+    いのちのたま: { label: "火力補強", points: 6 },
+    こだわりハチマキ: { label: "物理火力", points: 7 },
+    こだわりメガネ: { label: "特殊火力", points: 7 },
+    とつげきチョッキ: { label: "特殊耐久", points: 6 },
+    ゴツゴツメット: { label: "物理受け", points: 5 },
   };
-  Object.entries(itemBonus).forEach(([key, bonus]) => { if (item.includes(key)) breakdown.push(bonus); });
-  if (item.includes("ナイト") || item.includes("リザードナイトx") || item.includes("リザードナイトy") || item.includes("リザードナイトX") || item.includes("リザードナイトY")) {
+  Object.entries(itemBonus).forEach(([key, bonus]) => {
+    if (item.includes(key)) breakdown.push(bonus);
+  });
+  if (
+    item.includes("ナイト") ||
+    item.includes("リザードナイトx") ||
+    item.includes("リザードナイトy") ||
+    item.includes("リザードナイトX") ||
+    item.includes("リザードナイトY")
+  ) {
     breakdown.push({ label: "メガ適性", points: 6 });
   }
 
-  if (player.pickPriority === "高") breakdown.push({ label: "優先度 高", points: 8 });
-  else if (player.pickPriority === "低") breakdown.push({ label: "優先度 低", points: -5 });
+  if (player.pickPriority === "高")
+    breakdown.push({ label: "優先度 高", points: 8 });
+  else if (player.pickPriority === "低")
+    breakdown.push({ label: "優先度 低", points: -5 });
 
-  const selfAttacker = hasAnyText(roleText, ["アタッカー"]) || player.evA >= 24 || player.evC >= 24;
+  const selfAttacker =
+    hasAnyText(roleText, ["アタッカー"]) ||
+    player.evA >= 24 ||
+    player.evC >= 24;
   const selfFast = hasAnyText(roleText, ["高速"]) || player.evS >= 24;
-  const selfDefensive = hasAnyText(roleText, ["耐久", "受け"]) || player.evH >= 24 || player.evB >= 24 || player.evD >= 24;
+  const selfDefensive =
+    hasAnyText(roleText, ["耐久", "受け"]) ||
+    player.evH >= 24 ||
+    player.evB >= 24 ||
+    player.evD >= 24;
   const selfLead = hasAnyText(roleText, ["先発"]);
   const selfCloser = hasAnyText(roleText, ["詰め"]);
-  const defensiveOppCount = predictedOpponents.filter(o => hasAnyText(o.role, ["受け", "耐久"])) .length;
+  const defensiveOppCount = predictedOpponents.filter((o) =>
+    hasAnyText(o.role, ["受け", "耐久"]),
+  ).length;
 
-  predictedOpponents.slice(0,3).forEach((opp, idx) => {
-    const oppAtk = hasAnyText(opp.role, ["アタッカー", "対面性能", "積みアタッカー"]);
-    if (selfFast && selfAttacker && oppAtk) breakdown.push({ label: `予測${idx + 1}位に高速火力対応`, points: 8 });
-    if (selfDefensive && oppAtk) breakdown.push({ label: `予測${idx + 1}位を受けやすい`, points: 8 });
-    if (idx === 0 && selfLead) breakdown.push({ label: "予測1位対策", points: 6 });
+  predictedOpponents.slice(0, 3).forEach((opp, idx) => {
+    const oppAtk = hasAnyText(opp.role, [
+      "アタッカー",
+      "対面性能",
+      "積みアタッカー",
+    ]);
+    if (selfFast && selfAttacker && oppAtk)
+      breakdown.push({ label: `予測${idx + 1}位に高速火力対応`, points: 8 });
+    if (selfDefensive && oppAtk)
+      breakdown.push({ label: `予測${idx + 1}位を受けやすい`, points: 8 });
+    if (idx === 0 && selfLead)
+      breakdown.push({ label: "予測1位対策", points: 6 });
   });
-  if (selfCloser && defensiveOppCount <= 1 && predictedOpponents.length > 0) breakdown.push({ label: "詰め性能が通りやすい", points: 6 });
+  if (selfCloser && defensiveOppCount <= 1 && predictedOpponents.length > 0)
+    breakdown.push({ label: "詰め性能が通りやすい", points: 6 });
 
-  const movePatterns: Array<{ patterns: string[]; label: string; points: number }> = [
+  const movePatterns: Array<{
+    patterns: string[];
+    label: string;
+    points: number;
+  }> = [
     { patterns: ["じしん", "だいちのちから"], label: "地面打点", points: 4 },
     { patterns: ["れいとう", "こおり"], label: "氷打点", points: 4 },
     { patterns: ["ほのお", "フレア", "かえん"], label: "炎打点", points: 4 },
     { patterns: ["でんき", "10まん", "ボルト"], label: "電気打点", points: 4 },
     { patterns: ["みず", "ハイドロ", "アクア"], label: "水打点", points: 4 },
-    { patterns: ["フェアリー", "ムーン", "じゃれつく"], label: "フェアリー打点", points: 4 },
+    {
+      patterns: ["フェアリー", "ムーン", "じゃれつく"],
+      label: "フェアリー打点",
+      points: 4,
+    },
     { patterns: ["ゴースト", "シャドー"], label: "ゴースト打点", points: 4 },
-    { patterns: ["あく", "かみくだく", "ふいうち"], label: "悪打点", points: 4 },
-    { patterns: ["先制", "しんそく", "ふいうち", "かげうち", "アクアジェット"], label: "先制技", points: 5 },
-    { patterns: ["まもる", "みがわり", "ステルスロック", "おにび", "でんじは"], label: "補助技", points: 3 },
+    {
+      patterns: ["あく", "かみくだく", "ふいうち"],
+      label: "悪打点",
+      points: 4,
+    },
+    {
+      patterns: ["先制", "しんそく", "ふいうち", "かげうち", "アクアジェット"],
+      label: "先制技",
+      points: 5,
+    },
+    {
+      patterns: ["まもる", "みがわり", "ステルスロック", "おにび", "でんじは"],
+      label: "補助技",
+      points: 3,
+    },
   ];
-  movePatterns.forEach(entry => { if (hasAnyText(moveText, entry.patterns.map(x => x.toLowerCase()))) breakdown.push({ label: entry.label, points: entry.points }); });
+  movePatterns.forEach((entry) => {
+    if (
+      hasAnyText(
+        moveText,
+        entry.patterns.map((x) => x.toLowerCase()),
+      )
+    )
+      breakdown.push({ label: entry.label, points: entry.points });
+  });
+
+  breakdown.push(...scoreTypeMatchups(player, predictedOpponents));
 
   const score = breakdown.reduce((sum, b) => sum + b.points, 0);
-  const topReasons = [...breakdown].sort((a,b)=>b.points-a.points).slice(0,3).map(b=>b.label);
-  const reason = topReasons.length > 0 ? `${topReasons.join("・")}を活かして相手の予測上位3匹へ対応しやすいです` : "相手の予測上位3匹に対応しやすい構成です";
+  const topReasons = [...breakdown]
+    .sort((a, b) => b.points - a.points)
+    .slice(0, 3)
+    .map((b) => b.label);
+  const reason =
+    topReasons.length > 0
+      ? `${topReasons.join("・")}を活かして相手の予測上位3匹へ対応しやすいです`
+      : "相手の予測上位3匹に対応しやすい構成です";
 
   return { pokemon: player, score, reason, breakdown };
 }
 
-function recommendPlayerSelection(myTeam: MyPokemon[], predictedOpponents: OppPrediction[]): MyRecommendation[] {
+function recommendPlayerSelection(
+  myTeam: MyPokemon[],
+  predictedOpponents: OppPrediction[],
+): MyRecommendation[] {
   if (myTeam.length === 0 || predictedOpponents.length === 0) return [];
-  return myTeam.map(player => scorePlayerPokemon(player, predictedOpponents.slice(0, 3))).sort((a, b) => b.score - a.score).slice(0, Math.min(3, myTeam.length));
+  return myTeam
+    .map((player) => scorePlayerPokemon(player, predictedOpponents.slice(0, 3)))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, Math.min(3, myTeam.length));
 }
 
 function emptyForm(): Omit<MyPokemon, "id"> {
-  return { name: "", evH: 0, evA: 0, evB: 0, evC: 0, evD: 0, evS: 0, move1: "", move2: "", move3: "", move4: "", nature: "", item: "", ability: "", teraType: "", roleTags: [], pickPriority: "", memo: "" };
+  return {
+    name: "",
+    evH: 0,
+    evA: 0,
+    evB: 0,
+    evC: 0,
+    evD: 0,
+    evS: 0,
+    move1: "",
+    move2: "",
+    move3: "",
+    move4: "",
+    nature: "",
+    item: "",
+    ability: "",
+    teraType: "",
+    roleTags: [],
+    pickPriority: "",
+    memo: "",
+  };
 }
 
 function formatEVs(p: MyPokemon): string {
-  const stats: [string, number][] = [["H", p.evH], ["A", p.evA], ["B", p.evB], ["C", p.evC], ["D", p.evD], ["S", p.evS]];
+  const stats: [string, number][] = [
+    ["H", p.evH],
+    ["A", p.evA],
+    ["B", p.evB],
+    ["C", p.evC],
+    ["D", p.evD],
+    ["S", p.evS],
+  ];
   const nonZero = stats.filter(([, v]) => v > 0).map(([k, v]) => `${k}${v}`);
   return nonZero.length > 0 ? nonZero.join(" ") : "努力値なし";
 }
@@ -996,17 +1560,24 @@ function getPokemonApiRoleBonuses(data: PokemonApiData): ScoreBreakdown[] {
   const bonuses: ScoreBreakdown[] = [];
   const { stats } = data;
   if (stats.speed >= 100) bonuses.push({ label: "PokeAPI高速候補", points: 3 });
-  if (stats.attack >= 120 || stats.specialAttack >= 120) bonuses.push({ label: "PokeAPI高火力候補", points: 3 });
-  if (stats.hp >= 100 || stats.defense >= 100 || stats.specialDefense >= 100) bonuses.push({ label: "PokeAPI耐久候補", points: 3 });
+  if (stats.attack >= 120 || stats.specialAttack >= 120)
+    bonuses.push({ label: "PokeAPI高火力候補", points: 3 });
+  if (stats.hp >= 100 || stats.defense >= 100 || stats.specialDefense >= 100)
+    bonuses.push({ label: "PokeAPI耐久候補", points: 3 });
   return bonuses;
 }
 
 function PokemonApiDataSummary({ data }: { data: PokemonApiData }) {
   return (
     <div className="pokeapi-summary-lines">
-      <div>タイプ：{data.types.length > 0 ? data.types.join(" / ") : "未取得"}</div>
+      <div>
+        タイプ：{data.types.length > 0 ? data.types.join(" / ") : "未取得"}
+      </div>
       <div>種族値：{formatPokemonApiStats(data)}</div>
-      <div>特性候補：{data.abilities.length > 0 ? data.abilities.join(" / ") : "未取得"}</div>
+      <div>
+        特性候補：
+        {data.abilities.length > 0 ? data.abilities.join(" / ") : "未取得"}
+      </div>
     </div>
   );
 }
@@ -1014,7 +1585,12 @@ function PokemonApiDataSummary({ data }: { data: PokemonApiData }) {
 function CachedPokemonApiSummary({ name }: { name: string }) {
   const data = getCachedPokemonApiData(name);
   if (!data) return null;
-  return <div className="saved-pokeapi-summary"><strong>PokeAPI補助</strong><PokemonApiDataSummary data={data} /></div>;
+  return (
+    <div className="saved-pokeapi-summary">
+      <strong>PokeAPI補助</strong>
+      <PokemonApiDataSummary data={data} />
+    </div>
+  );
 }
 
 // ── App ───────────────────────────────────────────────────────────────────────
@@ -1027,19 +1603,34 @@ export default function App() {
       if (!saved) return [];
       const parsed = JSON.parse(saved) as Partial<MyPokemon>[];
       // Migrate old format that used evs: string
-      return parsed.map(p => ({
-        ...p,
-        evH: p.evH ?? 0, evA: p.evA ?? 0, evB: p.evB ?? 0,
-        evC: p.evC ?? 0, evD: p.evD ?? 0, evS: p.evS ?? 0,
-        ability: p.ability ?? "", teraType: p.teraType ?? "", roleTags: p.roleTags ?? [], pickPriority: p.pickPriority ?? "", memo: p.memo ?? "",
-      } as MyPokemon));
-    } catch { return []; }
+      return parsed.map(
+        (p) =>
+          ({
+            ...p,
+            evH: p.evH ?? 0,
+            evA: p.evA ?? 0,
+            evB: p.evB ?? 0,
+            evC: p.evC ?? 0,
+            evD: p.evD ?? 0,
+            evS: p.evS ?? 0,
+            ability: p.ability ?? "",
+            teraType: p.teraType ?? "",
+            roleTags: p.roleTags ?? [],
+            pickPriority: p.pickPriority ?? "",
+            memo: p.memo ?? "",
+          }) as MyPokemon,
+      );
+    } catch {
+      return [];
+    }
   });
   const [opponent, setOpponent] = useState<string[]>(() => {
     try {
       const saved = localStorage.getItem("opponentSlots");
       return saved ? JSON.parse(saved) : ["", "", "", "", "", ""];
-    } catch { return ["", "", "", "", "", ""]; }
+    } catch {
+      return ["", "", "", "", "", ""];
+    }
   });
   const [form, setForm] = useState(emptyForm());
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -1055,24 +1646,45 @@ export default function App() {
   function saveForm() {
     if (!form.name.trim() || !isAllowed(form.name)) return;
     if (editingId) {
-      setMyTeam(prev => prev.map(p => p.id === editingId ? { ...form, id: editingId } : p));
+      setMyTeam((prev) =>
+        prev.map((p) => (p.id === editingId ? { ...form, id: editingId } : p)),
+      );
       setEditingId(null);
     } else {
-      setMyTeam(prev => [...prev, { ...form, id: Date.now().toString() }]);
+      setMyTeam((prev) => [...prev, { ...form, id: Date.now().toString() }]);
     }
     setForm(emptyForm());
   }
 
   function deleteEntry(id: string) {
     if (!window.confirm("このポケモンを削除しますか？")) return;
-    setMyTeam(prev => prev.filter(p => p.id !== id));
+    setMyTeam((prev) => prev.filter((p) => p.id !== id));
   }
 
   function editEntry(p: MyPokemon) {
     setBottomView("home");
     setScreen("register");
     setEditingId(p.id);
-    setForm({ name: p.name, evH: p.evH, evA: p.evA, evB: p.evB, evC: p.evC, evD: p.evD, evS: p.evS, move1: p.move1, move2: p.move2, move3: p.move3, move4: p.move4, nature: p.nature, item: p.item, ability: p.ability ?? "", teraType: p.teraType ?? "", roleTags: p.roleTags ?? [], pickPriority: p.pickPriority ?? "", memo: p.memo ?? "" });
+    setForm({
+      name: p.name,
+      evH: p.evH,
+      evA: p.evA,
+      evB: p.evB,
+      evC: p.evC,
+      evD: p.evD,
+      evS: p.evS,
+      move1: p.move1,
+      move2: p.move2,
+      move3: p.move3,
+      move4: p.move4,
+      nature: p.nature,
+      item: p.item,
+      ability: p.ability ?? "",
+      teraType: p.teraType ?? "",
+      roleTags: p.roleTags ?? [],
+      pickPriority: p.pickPriority ?? "",
+      memo: p.memo ?? "",
+    });
   }
 
   function cancelEdit() {
@@ -1085,8 +1697,14 @@ export default function App() {
       <div className="hud-bg-layer" aria-hidden="true" />
       <header className="site-header">
         <div className="site-header-icon" aria-hidden="true" />
-        <div className="site-header-deco site-header-deco--left" aria-hidden="true" />
-        <div className="site-header-deco site-header-deco--right" aria-hidden="true" />
+        <div
+          className="site-header-deco site-header-deco--left"
+          aria-hidden="true"
+        />
+        <div
+          className="site-header-deco site-header-deco--right"
+          aria-hidden="true"
+        />
         <div className="site-header-copy">
           <h1>ポケモンバトルツール（Web版）</h1>
           <p>最適な選出で勝利をつかめ！</p>
@@ -1098,7 +1716,10 @@ export default function App() {
           <nav className="tab-bar">
             <button
               className={`tab-btn${screen === "register" ? " tab-btn--active" : ""}`}
-              onClick={() => { setScreen("register"); cancelEdit(); }}
+              onClick={() => {
+                setScreen("register");
+                cancelEdit();
+              }}
               data-testid="tab-register"
             >
               <span className="tab-icon">📋</span>
@@ -1113,37 +1734,263 @@ export default function App() {
               <span className="tab-label">相手入力・最適選出</span>
             </button>
           </nav>
-          {screen === "register" && <RegisterScreen form={form} setForm={setForm} myTeam={myTeam} onSave={saveForm} onDelete={deleteEntry} onEdit={editEntry} onCancelEdit={cancelEdit} editingId={editingId} />}
-          {screen === "battle" && <BattleScreen opponent={opponent} setOpponent={setOpponent} myTeam={myTeam} />}
+          {screen === "register" && (
+            <RegisterScreen
+              form={form}
+              setForm={setForm}
+              myTeam={myTeam}
+              onSave={saveForm}
+              onDelete={deleteEntry}
+              onEdit={editEntry}
+              onCancelEdit={cancelEdit}
+              editingId={editingId}
+            />
+          )}
+          {screen === "battle" && (
+            <BattleScreen
+              opponent={opponent}
+              setOpponent={setOpponent}
+              myTeam={myTeam}
+            />
+          )}
         </>
       )}
-      {bottomView === "saved" && <SavedListScreen myTeam={myTeam} onEdit={editEntry} onDelete={deleteEntry} />}
+      {bottomView === "saved" && (
+        <SavedListScreen
+          myTeam={myTeam}
+          onEdit={editEntry}
+          onDelete={deleteEntry}
+        />
+      )}
       {bottomView === "guide" && <GuideScreen />}
       <footer className="bottom-nav" aria-label="補助ナビゲーション">
-        <button type="button" className={`bottom-nav-item${bottomView === "home" ? " bottom-nav-item--active" : ""}`} onClick={() => setBottomView("home")} aria-current={bottomView === "home" ? "page" : undefined} aria-pressed={bottomView === "home"}>
-          <span aria-hidden="true">⌂</span><span>ホーム</span>
+        <button
+          type="button"
+          className={`bottom-nav-item${bottomView === "home" ? " bottom-nav-item--active" : ""}`}
+          onClick={() => setBottomView("home")}
+          aria-current={bottomView === "home" ? "page" : undefined}
+          aria-pressed={bottomView === "home"}
+        >
+          <span aria-hidden="true">⌂</span>
+          <span>ホーム</span>
         </button>
-        <button type="button" className={`bottom-nav-item${bottomView === "saved" ? " bottom-nav-item--active" : ""}`} onClick={() => setBottomView("saved")} aria-current={bottomView === "saved" ? "page" : undefined} aria-pressed={bottomView === "saved"}>
-          <span aria-hidden="true">▤</span><span>保存リスト</span>
+        <button
+          type="button"
+          className={`bottom-nav-item${bottomView === "saved" ? " bottom-nav-item--active" : ""}`}
+          onClick={() => setBottomView("saved")}
+          aria-current={bottomView === "saved" ? "page" : undefined}
+          aria-pressed={bottomView === "saved"}
+        >
+          <span aria-hidden="true">▤</span>
+          <span>保存リスト</span>
         </button>
-        <button type="button" className={`bottom-nav-item${bottomView === "guide" ? " bottom-nav-item--active" : ""}`} onClick={() => setBottomView("guide")} aria-current={bottomView === "guide" ? "page" : undefined} aria-pressed={bottomView === "guide"}>
-          <span aria-hidden="true">?</span><span>使い方</span>
+        <button
+          type="button"
+          className={`bottom-nav-item${bottomView === "guide" ? " bottom-nav-item--active" : ""}`}
+          onClick={() => setBottomView("guide")}
+          aria-current={bottomView === "guide" ? "page" : undefined}
+          aria-pressed={bottomView === "guide"}
+        >
+          <span aria-hidden="true">?</span>
+          <span>使い方</span>
         </button>
       </footer>
     </div>
   );
 }
 
-function SavedListScreen({ myTeam, onEdit, onDelete }: { myTeam: MyPokemon[]; onEdit: (p: MyPokemon) => void; onDelete: (id: string) => void }) {
-  return <section className="card saved-list-screen"><h2 className="card-title">保存リスト</h2><p className="subtext">登録した自分のポケモンを確認・編集できます。</p><p className="saved-count">登録済み {myTeam.length}匹</p>{myTeam.length === 0 ? <div className="empty-notice"><p>まだポケモンが登録されていません</p><p>ホームから自分のポケモンを登録してください</p></div> : <div className="saved-list-grid">{myTeam.map(p => <article key={p.id} className="saved-card"><h3 className="saved-name">{p.name || "未設定"}</h3><p className="saved-ev">H{p.evH ?? 0} A{p.evA ?? 0} B{p.evB ?? 0} C{p.evC ?? 0} D{p.evD ?? 0} S{p.evS ?? 0}</p><div className="saved-chip-row">{[p.move1, p.move2, p.move3, p.move4].map((m, i) => <span key={`${p.id}-move-${i}`} className="saved-chip">{m || `技${i + 1} 未設定`}</span>)}</div><div className="saved-detail-grid"><p><strong>性格</strong> {p.nature || "未設定"}</p><p><strong>持ち物</strong> {p.item || "未設定"}</p><p><strong>特性</strong> {p.ability || "未設定"}</p><p><strong>テラスタイプ</strong> {p.teraType || "未設定"}</p><p><strong>選出優先度</strong> {p.pickPriority || "未設定"}</p></div><div className="saved-chip-row">{(p.roleTags ?? []).length > 0 ? p.roleTags.map(tag => <span key={`${p.id}-${tag}`} className="saved-chip">{tag}</span>) : <span className="saved-chip">役割タグ 未設定</span>}</div>{p.memo?.trim() ? <p className="saved-memo"><strong>メモ</strong> {p.memo}</p> : null}<CachedPokemonApiSummary name={p.name} /><div className="saved-actions"><button type="button" className="btn-secondary saved-action-btn" onClick={() => onEdit(p)} aria-label={`${p.name} を編集`}>編集</button><button type="button" className="btn-danger saved-action-btn" onClick={() => onDelete(p.id)} aria-label={`${p.name} を削除`}>削除</button></div></article>)}</div>}</section>;
+function SavedListScreen({
+  myTeam,
+  onEdit,
+  onDelete,
+}: {
+  myTeam: MyPokemon[];
+  onEdit: (p: MyPokemon) => void;
+  onDelete: (id: string) => void;
+}) {
+  return (
+    <section className="card saved-list-screen">
+      <h2 className="card-title">保存リスト</h2>
+      <p className="subtext">登録した自分のポケモンを確認・編集できます。</p>
+      <p className="saved-count">登録済み {myTeam.length}匹</p>
+      {myTeam.length === 0 ? (
+        <div className="empty-notice">
+          <p>まだポケモンが登録されていません</p>
+          <p>ホームから自分のポケモンを登録してください</p>
+        </div>
+      ) : (
+        <div className="saved-list-grid">
+          {myTeam.map((p) => (
+            <article key={p.id} className="saved-card">
+              <h3 className="saved-name">{p.name || "未設定"}</h3>
+              <p className="saved-ev">
+                H{p.evH ?? 0} A{p.evA ?? 0} B{p.evB ?? 0} C{p.evC ?? 0} D
+                {p.evD ?? 0} S{p.evS ?? 0}
+              </p>
+              <div className="saved-chip-row">
+                {[p.move1, p.move2, p.move3, p.move4].map((m, i) => (
+                  <span key={`${p.id}-move-${i}`} className="saved-chip">
+                    {m || `技${i + 1} 未設定`}
+                  </span>
+                ))}
+              </div>
+              <div className="saved-detail-grid">
+                <p>
+                  <strong>性格</strong> {p.nature || "未設定"}
+                </p>
+                <p>
+                  <strong>持ち物</strong> {p.item || "未設定"}
+                </p>
+                <p>
+                  <strong>特性</strong> {p.ability || "未設定"}
+                </p>
+                <p>
+                  <strong>テラスタイプ</strong> {p.teraType || "未設定"}
+                </p>
+                <p>
+                  <strong>選出優先度</strong> {p.pickPriority || "未設定"}
+                </p>
+              </div>
+              <div className="saved-chip-row">
+                {(p.roleTags ?? []).length > 0 ? (
+                  p.roleTags.map((tag) => (
+                    <span key={`${p.id}-${tag}`} className="saved-chip">
+                      {tag}
+                    </span>
+                  ))
+                ) : (
+                  <span className="saved-chip">役割タグ 未設定</span>
+                )}
+              </div>
+              {p.memo?.trim() ? (
+                <p className="saved-memo">
+                  <strong>メモ</strong> {p.memo}
+                </p>
+              ) : null}
+              <CachedPokemonApiSummary name={p.name} />
+              <div className="saved-actions">
+                <button
+                  type="button"
+                  className="btn-secondary saved-action-btn"
+                  onClick={() => onEdit(p)}
+                  aria-label={`${p.name} を編集`}
+                >
+                  編集
+                </button>
+                <button
+                  type="button"
+                  className="btn-danger saved-action-btn"
+                  onClick={() => onDelete(p.id)}
+                  aria-label={`${p.name} を削除`}
+                >
+                  削除
+                </button>
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
+    </section>
+  );
 }
 
-function GuideScreen() { return <section className="card guide-screen"><h2 className="card-title">使い方</h2><p className="subtext">このツールは、ポケモンチャンピオンズの対戦で、相手の選出予測と自分のおすすめ選出を確認するための補助ツールです。</p><div className="guide-steps">{[{ title: "STEP 1 自分のポケモンを登録する", body: "まず、ホーム画面の「自分のポケモン登録」で、自分が使うポケモンを登録します。", details: ["ポケモン名", "努力値", "技4つ", "性格", "持ち物", "特性", "テラスタイプ", "役割タグ", "選出優先度", "メモ"], note: "努力値はチャンピオンズ制に合わせて、合計66、1項目最大32です。" }, { title: "STEP 2 相手の6匹を入力する", body: "相手入力・最適選出画面で、相手のパーティを最大6匹入力します。", note: "全部入力しなくても動きますが、6匹入力した方が予測しやすくなります。" }, { title: "STEP 3 相手の選出予測を見る", body: "入力された相手パーティから、相手が出してきそうな上位3匹を表示します。", details: ["予測順位", "ポケモン名", "予測スコア", "予測理由", "注意点"] }, { title: "STEP 4 自分のおすすめ選出を見る", body: "相手の予測上位3匹に対して、自分の登録済みポケモンからおすすめ3匹を表示します。", details: ["おすすめ順位", "ポケモン名", "スコア", "おすすめ理由", "スコア内訳"] }, { title: "STEP 5 保存リストで確認する", body: "登録済みポケモンは、下部ナビの「保存リスト」から確認できます。編集や削除もここからできます。" }].map((step, idx) => <article key={step.title} className="guide-step-card"><div className="guide-step-badge">STEP {idx + 1}</div><h3>{step.title}</h3><p>{step.body}</p>{step.details ? <ul>{step.details.map(d => <li key={d}>{d}</li>)}</ul> : null}{step.note ? <p className="subtext">{step.note}</p> : null}</article>)}</div><article className="guide-step-card"><div className="guide-step-badge">注意</div><ul><li>このツールの予測は絶対ではありません。</li><li>実際の対戦では、相手の型やプレイングによって結果が変わります。</li><li>あくまで選出を考えるための補助として使ってください。</li><li>データはこのブラウザのlocalStorageに保存されます。</li><li>端末やブラウザを変えると、保存データは引き継がれません。</li></ul></article></section>; }
+function GuideScreen() {
+  return (
+    <section className="card guide-screen">
+      <h2 className="card-title">使い方</h2>
+      <p className="subtext">
+        このツールは、ポケモンチャンピオンズの対戦で、相手の選出予測と自分のおすすめ選出を確認するための補助ツールです。
+      </p>
+      <div className="guide-steps">
+        {[
+          {
+            title: "STEP 1 自分のポケモンを登録する",
+            body: "まず、ホーム画面の「自分のポケモン登録」で、自分が使うポケモンを登録します。",
+            details: [
+              "ポケモン名",
+              "努力値",
+              "技4つ",
+              "性格",
+              "持ち物",
+              "特性",
+              "テラスタイプ",
+              "役割タグ",
+              "選出優先度",
+              "メモ",
+            ],
+            note: "努力値はチャンピオンズ制に合わせて、合計66、1項目最大32です。",
+          },
+          {
+            title: "STEP 2 相手の6匹を入力する",
+            body: "相手入力・最適選出画面で、相手のパーティを最大6匹入力します。",
+            note: "全部入力しなくても動きますが、6匹入力した方が予測しやすくなります。",
+          },
+          {
+            title: "STEP 3 相手の選出予測を見る",
+            body: "入力された相手パーティから、相手が出してきそうな上位3匹を表示します。",
+            details: [
+              "予測順位",
+              "ポケモン名",
+              "予測スコア",
+              "予測理由",
+              "注意点",
+            ],
+          },
+          {
+            title: "STEP 4 自分のおすすめ選出を見る",
+            body: "相手の予測上位3匹に対して、自分の登録済みポケモンからおすすめ3匹を表示します。",
+            details: [
+              "おすすめ順位",
+              "ポケモン名",
+              "スコア",
+              "おすすめ理由",
+              "スコア内訳",
+            ],
+          },
+          {
+            title: "STEP 5 保存リストで確認する",
+            body: "登録済みポケモンは、下部ナビの「保存リスト」から確認できます。編集や削除もここからできます。",
+          },
+        ].map((step, idx) => (
+          <article key={step.title} className="guide-step-card">
+            <div className="guide-step-badge">STEP {idx + 1}</div>
+            <h3>{step.title}</h3>
+            <p>{step.body}</p>
+            {step.details ? (
+              <ul>
+                {step.details.map((d) => (
+                  <li key={d}>{d}</li>
+                ))}
+              </ul>
+            ) : null}
+            {step.note ? <p className="subtext">{step.note}</p> : null}
+          </article>
+        ))}
+      </div>
+      <article className="guide-step-card">
+        <div className="guide-step-badge">注意</div>
+        <ul>
+          <li>このツールの予測は絶対ではありません。</li>
+          <li>
+            実際の対戦では、相手の型やプレイングによって結果が変わります。
+          </li>
+          <li>あくまで選出を考えるための補助として使ってください。</li>
+          <li>データはこのブラウザのlocalStorageに保存されます。</li>
+          <li>端末やブラウザを変えると、保存データは引き継がれません。</li>
+        </ul>
+      </article>
+    </section>
+  );
+}
 
 // ── EVSection ─────────────────────────────────────────────────────────────────
 const EV_MAX_SINGLE = 32;
 const EV_MAX_TOTAL = 66;
-const EV_STATS: { key: "evH" | "evA" | "evB" | "evC" | "evD" | "evS"; label: string; full: string }[] = [
+const EV_STATS: {
+  key: "evH" | "evA" | "evB" | "evC" | "evD" | "evS";
+  label: string;
+  full: string;
+}[] = [
   { key: "evH", label: "H", full: "HP" },
   { key: "evA", label: "A", full: "こうげき" },
   { key: "evB", label: "B", full: "ぼうぎょ" },
@@ -1152,11 +1999,19 @@ const EV_STATS: { key: "evH" | "evA" | "evB" | "evC" | "evD" | "evS"; label: str
   { key: "evS", label: "S", full: "すばやさ" },
 ];
 
-function EVSection({ form, setForm }: { form: Omit<MyPokemon, "id">; setForm: (f: Omit<MyPokemon, "id">) => void }) {
+function EVSection({
+  form,
+  setForm,
+}: {
+  form: Omit<MyPokemon, "id">;
+  setForm: (f: Omit<MyPokemon, "id">) => void;
+}) {
   const total = EV_STATS.reduce((sum, s) => sum + (form[s.key] as number), 0);
   const remaining = EV_MAX_TOTAL - total;
   const overTotal = total > EV_MAX_TOTAL;
-  const overSingle = EV_STATS.some(s => (form[s.key] as number) > EV_MAX_SINGLE);
+  const overSingle = EV_STATS.some(
+    (s) => (form[s.key] as number) > EV_MAX_SINGLE,
+  );
 
   function handleChange(key: keyof typeof form, raw: string) {
     const val = raw === "" ? 0 : Math.max(0, parseInt(raw, 10) || 0);
@@ -1166,11 +2021,19 @@ function EVSection({ form, setForm }: { form: Omit<MyPokemon, "id">; setForm: (f
   return (
     <div className="field">
       <div className="ev-header-row">
-        <label className="field-label" style={{ margin: 0 }}>努力値</label>
-        <div className={`ev-total${overTotal ? " ev-total--error" : remaining === 0 ? " ev-total--done" : ""}`}>
+        <label className="field-label" style={{ margin: 0 }}>
+          努力値
+        </label>
+        <div
+          className={`ev-total${overTotal ? " ev-total--error" : remaining === 0 ? " ev-total--done" : ""}`}
+        >
           合計 <strong>{total}</strong> / {EV_MAX_TOTAL}
         </div>
-        <div className={`ev-remaining${overTotal ? " ev-remaining--error" : ""}`}>残り {Math.max(remaining, 0)}</div>
+        <div
+          className={`ev-remaining${overTotal ? " ev-remaining--error" : ""}`}
+        >
+          残り {Math.max(remaining, 0)}
+        </div>
       </div>
 
       <div className="ev-grid">
@@ -1189,7 +2052,7 @@ function EVSection({ form, setForm }: { form: Omit<MyPokemon, "id">; setForm: (f
                 max={EV_MAX_SINGLE}
                 value={val === 0 ? "" : val}
                 placeholder="0"
-                onChange={e => handleChange(key, e.target.value)}
+                onChange={(e) => handleChange(key, e.target.value)}
                 data-testid={`input-ev-${label.toLowerCase()}`}
               />
             </div>
@@ -1198,12 +2061,20 @@ function EVSection({ form, setForm }: { form: Omit<MyPokemon, "id">; setForm: (f
       </div>
 
       {overSingle && (
-        <div className="field-error-msg" style={{ marginTop: 6 }} data-testid="error-ev-single">
+        <div
+          className="field-error-msg"
+          style={{ marginTop: 6 }}
+          data-testid="error-ev-single"
+        >
           1つの能力は{EV_MAX_SINGLE}までです
         </div>
       )}
       {overTotal && (
-        <div className="field-error-msg" style={{ marginTop: 6 }} data-testid="error-ev-total">
+        <div
+          className="field-error-msg"
+          style={{ marginTop: 6 }}
+          data-testid="error-ev-total"
+        >
           努力値の合計は{EV_MAX_TOTAL}までです
         </div>
       )}
@@ -1223,8 +2094,19 @@ interface RegisterProps {
   editingId: string | null;
 }
 
-function RegisterScreen({ form, setForm, myTeam, onSave, onDelete, onEdit, onCancelEdit, editingId }: RegisterProps) {
-  const [pokeApiStatus, setPokeApiStatus] = useState<"idle" | "loading" | "success" | "unsupported" | "error">("idle");
+function RegisterScreen({
+  form,
+  setForm,
+  myTeam,
+  onSave,
+  onDelete,
+  onEdit,
+  onCancelEdit,
+  editingId,
+}: RegisterProps) {
+  const [pokeApiStatus, setPokeApiStatus] = useState<
+    "idle" | "loading" | "success" | "unsupported" | "error"
+  >("idle");
   const [pokeApiData, setPokeApiData] = useState<PokemonApiData | null>(null);
 
   function f(key: keyof typeof form) {
@@ -1275,36 +2157,65 @@ function RegisterScreen({ form, setForm, myTeam, onSave, onDelete, onEdit, onCan
         setPokeApiStatus("error");
       });
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [form.name]);
 
   const evTotal = EV_STATS.reduce((sum, s) => sum + (form[s.key] as number), 0);
-  const evOk = evTotal <= EV_MAX_TOTAL && EV_STATS.every(s => (form[s.key] as number) <= EV_MAX_SINGLE);
+  const evOk =
+    evTotal <= EV_MAX_TOTAL &&
+    EV_STATS.every((s) => (form[s.key] as number) <= EV_MAX_SINGLE);
   const canSave = form.name.trim() !== "" && isAllowed(form.name) && evOk;
 
   return (
     <div className="screen">
       <div className="card">
-        <div className="card-title">{editingId ? "編集中" : "新しいポケモンを追加"}</div>
+        <div className="card-title">
+          {editingId ? "編集中" : "新しいポケモンを追加"}
+        </div>
 
         <div className="field">
           <label className="field-label">ポケモン名</label>
           <PokemonInput
             value={form.name}
-            onChange={val => setForm({ ...form, name: val })}
+            onChange={(val) => setForm({ ...form, name: val })}
             placeholder="例: ガブリアス"
             testId="input-pokemon-name"
           />
         </div>
 
-        <div className={`pokeapi-card pokeapi-card--${pokeApiStatus}`} data-testid="pokeapi-helper-card">
+        <div
+          className={`pokeapi-card pokeapi-card--${pokeApiStatus}`}
+          data-testid="pokeapi-helper-card"
+        >
           <div className="pokeapi-card-title">PokeAPI補助データ</div>
-          <div className="pokeapi-card-note">チャンピオンズ専用データではないため、タイプ・種族値・特性候補の補助情報として表示します。</div>
-          {pokeApiStatus === "idle" && <div className="pokeapi-card-message">ポケモンを選ぶとタイプ・種族値・特性候補を取得します</div>}
-          {pokeApiStatus === "loading" && <div className="pokeapi-card-message">PokeAPIから補助データを取得中...</div>}
-          {pokeApiStatus === "success" && pokeApiData && <PokemonApiDataSummary data={pokeApiData} />}
-          {pokeApiStatus === "unsupported" && <div className="pokeapi-card-message">このポケモンはPokeAPI連携未対応です</div>}
-          {pokeApiStatus === "error" && <div className="pokeapi-card-message">PokeAPIデータを取得できませんでした。手動入力はそのまま使えます</div>}
+          <div className="pokeapi-card-note">
+            チャンピオンズ専用データではないため、タイプ・種族値・特性候補の補助情報として表示します。
+          </div>
+          {pokeApiStatus === "idle" && (
+            <div className="pokeapi-card-message">
+              ポケモンを選ぶとタイプ・種族値・特性候補を取得します
+            </div>
+          )}
+          {pokeApiStatus === "loading" && (
+            <div className="pokeapi-card-message">
+              PokeAPIから補助データを取得中...
+            </div>
+          )}
+          {pokeApiStatus === "success" && pokeApiData && (
+            <PokemonApiDataSummary data={pokeApiData} />
+          )}
+          {pokeApiStatus === "unsupported" && (
+            <div className="pokeapi-card-message">
+              このポケモンはPokeAPI連携未対応です
+            </div>
+          )}
+          {pokeApiStatus === "error" && (
+            <div className="pokeapi-card-message">
+              PokeAPIデータを取得できませんでした。手動入力はそのまま使えます
+            </div>
+          )}
         </div>
 
         <EVSection form={form} setForm={setForm} />
@@ -1312,23 +2223,58 @@ function RegisterScreen({ form, setForm, myTeam, onSave, onDelete, onEdit, onCan
         <div className="field">
           <label className="field-label">技</label>
           <div className="moves-grid">
-            <MoveInput placeholder="技1" value={form.move1} onChange={val => setForm({ ...form, move1: val })} testId="input-move1" />
-            <MoveInput placeholder="技2" value={form.move2} onChange={val => setForm({ ...form, move2: val })} testId="input-move2" />
-            <MoveInput placeholder="技3" value={form.move3} onChange={val => setForm({ ...form, move3: val })} testId="input-move3" />
-            <MoveInput placeholder="技4" value={form.move4} onChange={val => setForm({ ...form, move4: val })} testId="input-move4" />
+            <MoveInput
+              placeholder="技1"
+              value={form.move1}
+              onChange={(val) => setForm({ ...form, move1: val })}
+              testId="input-move1"
+            />
+            <MoveInput
+              placeholder="技2"
+              value={form.move2}
+              onChange={(val) => setForm({ ...form, move2: val })}
+              testId="input-move2"
+            />
+            <MoveInput
+              placeholder="技3"
+              value={form.move3}
+              onChange={(val) => setForm({ ...form, move3: val })}
+              testId="input-move3"
+            />
+            <MoveInput
+              placeholder="技4"
+              value={form.move4}
+              onChange={(val) => setForm({ ...form, move4: val })}
+              testId="input-move4"
+            />
           </div>
           {(() => {
-            const moves = [form.move1, form.move2, form.move3, form.move4].map(m => m.trim()).filter(Boolean);
+            const moves = [form.move1, form.move2, form.move3, form.move4]
+              .map((m) => m.trim())
+              .filter(Boolean);
             const hasDup = new Set(moves).size !== moves.length;
-            return hasDup ? <div className="field-error-msg" style={{ marginTop: 6 }}>同じ技が重複しています</div> : null;
+            return hasDup ? (
+              <div className="field-error-msg" style={{ marginTop: 6 }}>
+                同じ技が重複しています
+              </div>
+            ) : null;
           })()}
         </div>
 
         <div className="field">
           <label className="field-label">性格</label>
-          <select className="field-select" value={form.nature} onChange={f("nature")} data-testid="select-nature">
+          <select
+            className="field-select"
+            value={form.nature}
+            onChange={f("nature")}
+            data-testid="select-nature"
+          >
             <option value="">性格を選択</option>
-            {NATURES.map(n => <option key={n} value={n}>{n}</option>)}
+            {NATURES.map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
           </select>
         </div>
 
@@ -1336,43 +2282,110 @@ function RegisterScreen({ form, setForm, myTeam, onSave, onDelete, onEdit, onCan
           <label className="field-label">持ち物</label>
           <ItemPicker
             value={form.item}
-            onChange={val => setForm({ ...form, item: val })}
+            onChange={(val) => setForm({ ...form, item: val })}
           />
         </div>
         <div className="field">
           <label className="field-label">特性</label>
-          <AbilityInput value={form.ability} onChange={val => setForm({ ...form, ability: val })} testId="input-ability" />
-          {pokeApiStatus === "success" && pokeApiData && pokeApiData.abilities.length > 0 && (
-            <div className="recommended-ability-box">
-              <div className="recommended-ability-label">おすすめ特性（PokeAPI）</div>
-              <div className="recommended-ability-chips">
-                {pokeApiData.abilities.map(ability => (
-                  <button
-                    key={ability}
-                    type="button"
-                    className="recommended-ability-chip"
-                    onClick={() => setForm({ ...form, ability })}
-                    data-testid={`chip-api-ability-${ability}`}
-                  >
-                    {ability}
-                  </button>
-                ))}
+          <AbilityInput
+            value={form.ability}
+            onChange={(val) => setForm({ ...form, ability: val })}
+            testId="input-ability"
+          />
+          {pokeApiStatus === "success" &&
+            pokeApiData &&
+            pokeApiData.abilities.length > 0 && (
+              <div className="recommended-ability-box">
+                <div className="recommended-ability-label">
+                  おすすめ特性（PokeAPI）
+                </div>
+                <div className="recommended-ability-chips">
+                  {getAbilityDetailsForDisplay(pokeApiData).map((ability) => (
+                    <button
+                      key={`${ability.apiName}-${ability.name}`}
+                      type="button"
+                      className="recommended-ability-chip"
+                      onClick={() =>
+                        setForm({ ...form, ability: ability.name })
+                      }
+                      data-api-name={ability.apiName}
+                      title={`PokeAPI: ${ability.apiName}`}
+                      data-testid={`chip-api-ability-${ability.name}`}
+                    >
+                      <span className="recommended-ability-name">
+                        {ability.name}
+                      </span>
+                      {ability.isHidden && (
+                        <span className="recommended-ability-hidden">
+                          隠れ特性
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
         </div>
         <div className="field">
           <label className="field-label">テラスタイプ</label>
-          <select className="field-select" value={form.teraType} onChange={f("teraType")}><option value="">選択してください</option>{TERA_TYPES.map(t => <option key={t} value={t}>{t}</option>)}</select>
+          <select
+            className="field-select"
+            value={form.teraType}
+            onChange={f("teraType")}
+          >
+            <option value="">選択してください</option>
+            {TERA_TYPES.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
+          </select>
         </div>
         <div className="field">
           <label className="field-label">役割タグ（複数選択）</label>
           <div className="result-tags">
-            {ROLE_TAGS.map(tag => <button key={tag} type="button" className={`result-tag ${form.roleTags.includes(tag) ? "role-active" : ""}`} onClick={() => setForm({ ...form, roleTags: form.roleTags.includes(tag) ? form.roleTags.filter(t => t !== tag) : [...form.roleTags, tag] })}>{tag}</button>)}
+            {ROLE_TAGS.map((tag) => (
+              <button
+                key={tag}
+                type="button"
+                className={`result-tag ${form.roleTags.includes(tag) ? "role-active" : ""}`}
+                onClick={() =>
+                  setForm({
+                    ...form,
+                    roleTags: form.roleTags.includes(tag)
+                      ? form.roleTags.filter((t) => t !== tag)
+                      : [...form.roleTags, tag],
+                  })
+                }
+              >
+                {tag}
+              </button>
+            ))}
           </div>
         </div>
-        <div className="field"><label className="field-label">選出優先度</label><select className="field-select" value={form.pickPriority} onChange={f("pickPriority")}><option value="">未設定</option><option value="高">高</option><option value="中">中</option><option value="低">低</option></select></div>
-        <div className="field"><label className="field-label">メモ</label><textarea className="field-input" placeholder="例: 初手に出しやすい" value={form.memo} onChange={e => setForm({ ...form, memo: e.target.value })} rows={3} /></div>
+        <div className="field">
+          <label className="field-label">選出優先度</label>
+          <select
+            className="field-select"
+            value={form.pickPriority}
+            onChange={f("pickPriority")}
+          >
+            <option value="">未設定</option>
+            <option value="高">高</option>
+            <option value="中">中</option>
+            <option value="低">低</option>
+          </select>
+        </div>
+        <div className="field">
+          <label className="field-label">メモ</label>
+          <textarea
+            className="field-input"
+            placeholder="例: 初手に出しやすい"
+            value={form.memo}
+            onChange={(e) => setForm({ ...form, memo: e.target.value })}
+            rows={3}
+          />
+        </div>
 
         <div style={{ display: "flex", gap: "10px", marginTop: "4px" }}>
           <button
@@ -1385,7 +2398,11 @@ function RegisterScreen({ form, setForm, myTeam, onSave, onDelete, onEdit, onCan
             {editingId ? "更新する" : "保存する"}
           </button>
           {editingId && (
-            <button className="btn-secondary" onClick={onCancelEdit} data-testid="btn-cancel-edit">
+            <button
+              className="btn-secondary"
+              onClick={onCancelEdit}
+              data-testid="btn-cancel-edit"
+            >
               キャンセル
             </button>
           )}
@@ -1401,27 +2418,77 @@ function RegisterScreen({ form, setForm, myTeam, onSave, onDelete, onEdit, onCan
           <div className="empty-state">まだポケモンが登録されていません</div>
         ) : (
           <div className="pokemon-list">
-            {myTeam.map(p => (
-              <div className="pokemon-card" key={p.id} data-testid={`card-pokemon-${p.id}`}>
+            {myTeam.map((p) => (
+              <div
+                className="pokemon-card"
+                key={p.id}
+                data-testid={`card-pokemon-${p.id}`}
+              >
                 <div className="pokemon-card-info">
                   <div className="pokemon-card-name">{p.name}</div>
                   <div className="pokemon-card-meta">
-                    {p.nature && <span className="pokemon-card-tag">{p.nature}</span>}
-                    {p.item && <span className="pokemon-card-tag">{p.item}</span>}
-                    {p.ability && <span className="pokemon-card-tag">{p.ability}</span>}
-                    {p.teraType && <span className="pokemon-card-tag">テラ:{p.teraType}</span>}
-                    {p.pickPriority && <span className="pokemon-card-tag">優先:{p.pickPriority}</span>}
-                    {p.roleTags?.map((t, i) => <span className="pokemon-card-tag" key={`rt-${i}`}>{t}</span>)}
-                    <span className="pokemon-card-tag">{formatEVs(p)}</span>
-                    {[p.move1, p.move2, p.move3, p.move4].filter(Boolean).map((m, i) => (
-                      <span className="pokemon-card-tag" key={i}>{m}</span>
+                    {p.nature && (
+                      <span className="pokemon-card-tag">{p.nature}</span>
+                    )}
+                    {p.item && (
+                      <span className="pokemon-card-tag">{p.item}</span>
+                    )}
+                    {p.ability && (
+                      <span className="pokemon-card-tag">{p.ability}</span>
+                    )}
+                    {p.teraType && (
+                      <span className="pokemon-card-tag">
+                        テラ:{p.teraType}
+                      </span>
+                    )}
+                    {p.pickPriority && (
+                      <span className="pokemon-card-tag">
+                        優先:{p.pickPriority}
+                      </span>
+                    )}
+                    {p.roleTags?.map((t, i) => (
+                      <span className="pokemon-card-tag" key={`rt-${i}`}>
+                        {t}
+                      </span>
                     ))}
+                    <span className="pokemon-card-tag">{formatEVs(p)}</span>
+                    {[p.move1, p.move2, p.move3, p.move4]
+                      .filter(Boolean)
+                      .map((m, i) => (
+                        <span className="pokemon-card-tag" key={i}>
+                          {m}
+                        </span>
+                      ))}
                   </div>
-                  {p.memo && <div className="result-reason" style={{ marginTop: 6 }}>メモ: {p.memo}</div>}
+                  {p.memo && (
+                    <div className="result-reason" style={{ marginTop: 6 }}>
+                      メモ: {p.memo}
+                    </div>
+                  )}
                 </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: "4px", alignItems: "flex-end" }}>
-                  <button className="btn-secondary" style={{ padding: "6px 12px", fontSize: 13 }} onClick={() => onEdit(p)} data-testid={`btn-edit-${p.id}`}>編集</button>
-                  <button className="btn-danger" onClick={() => onDelete(p.id)} data-testid={`btn-delete-${p.id}`}>削除</button>
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "4px",
+                    alignItems: "flex-end",
+                  }}
+                >
+                  <button
+                    className="btn-secondary"
+                    style={{ padding: "6px 12px", fontSize: 13 }}
+                    onClick={() => onEdit(p)}
+                    data-testid={`btn-edit-${p.id}`}
+                  >
+                    編集
+                  </button>
+                  <button
+                    className="btn-danger"
+                    onClick={() => onDelete(p.id)}
+                    data-testid={`btn-delete-${p.id}`}
+                  >
+                    削除
+                  </button>
                 </div>
               </div>
             ))}
@@ -1437,14 +2504,39 @@ const RANK_LABELS = ["1位", "2位", "3位"];
 const RANK_COLORS = ["#f5a623", "#a0a0b0", "#c07a3a"];
 
 function BattleScreen({
-  opponent, setOpponent, myTeam,
+  opponent,
+  setOpponent,
+  myTeam,
 }: {
   opponent: string[];
   setOpponent: (o: string[]) => void;
   myTeam: MyPokemon[];
 }) {
   const predictions = predictOpponent(opponent);
-  const validCount = opponent.filter(s => s.trim() && isAllowed(s)).length;
+  const [, setPokeApiCacheVersion] = useState(0);
+  const validCount = opponent.filter((s) => s.trim() && isAllowed(s)).length;
+
+  useEffect(() => {
+    let cancelled = false;
+    const namesToFetch = predictions
+      .map((prediction) => prediction.name)
+      .filter(
+        (name) => getPokemonApiName(name) && !getCachedPokemonApiData(name),
+      );
+
+    if (namesToFetch.length === 0) return;
+
+    Promise.allSettled(
+      namesToFetch.map((name) => fetchPokemonApiData(name)),
+    ).then(() => {
+      if (!cancelled) setPokeApiCacheVersion((version) => version + 1);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [predictions.map((prediction) => prediction.name).join("|")]);
+
   const recommendations = recommendPlayerSelection(myTeam, predictions);
 
   function update(i: number, val: string) {
@@ -1455,18 +2547,29 @@ function BattleScreen({
 
   return (
     <div className="screen">
-
       {/* ── 相手のパーティ入力 ──────────────────────────────────────── */}
       <div className="card">
         <div className="card-title">相手のポケモン入力（最大6匹）</div>
         {opponent.map((name, i) => (
-          <div className="field" key={i} style={{ marginBottom: i < 5 ? 14 : 0 }}>
-            <div className="opponent-slot" style={{ alignItems: "flex-start", gap: 10 }}>
-              <div className="slot-num" style={{ marginTop: 12, flexShrink: 0 }}>{i + 1}</div>
+          <div
+            className="field"
+            key={i}
+            style={{ marginBottom: i < 5 ? 14 : 0 }}
+          >
+            <div
+              className="opponent-slot"
+              style={{ alignItems: "flex-start", gap: 10 }}
+            >
+              <div
+                className="slot-num"
+                style={{ marginTop: 12, flexShrink: 0 }}
+              >
+                {i + 1}
+              </div>
               <div style={{ flex: 1 }}>
                 <PokemonInput
                   value={name}
-                  onChange={val => update(i, val)}
+                  onChange={(val) => update(i, val)}
                   placeholder={`ポケモン ${i + 1}`}
                   testId={`input-opponent-${i + 1}`}
                 />
@@ -1474,7 +2577,14 @@ function BattleScreen({
             </div>
           </div>
         ))}
-        <p style={{ fontSize: 12, color: "#aaa", textAlign: "center", marginTop: 12 }}>
+        <p
+          style={{
+            fontSize: 12,
+            color: "#aaa",
+            textAlign: "center",
+            marginTop: 12,
+          }}
+        >
           入力内容は自動で保存されます
         </p>
       </div>
@@ -1482,17 +2592,28 @@ function BattleScreen({
       {/* ── 相手の選出予測 ──────────────────────────────────────────── */}
       <div className="card">
         <div className="result-section-title">相手の選出予測</div>
-        <div className="result-meta-note">入力された相手パーティから、選出されやすい3匹を予測します。</div>
+        <div className="result-meta-note">
+          入力された相手パーティから、選出されやすい3匹を予測します。
+        </div>
         {validCount === 0 ? (
           <div className="result-empty">
             <div className="result-empty-icon">🔍</div>
-            <div className="result-empty-text">相手のポケモンを入力すると、選出予測が表示されます</div>
+            <div className="result-empty-text">
+              相手のポケモンを入力すると、選出予測が表示されます
+            </div>
           </div>
         ) : (
           <>
             {predictions.map((p, i) => (
-            <div className={`result-pokemon result-pokemon--rank-${i + 1}`} key={p.name} data-testid={`result-opponent-${i + 1}`}>
-                <div className="result-rank-badge" style={{ background: RANK_COLORS[i] }}>
+              <div
+                className={`result-pokemon result-pokemon--rank-${i + 1}`}
+                key={p.name}
+                data-testid={`result-opponent-${i + 1}`}
+              >
+                <div
+                  className="result-rank-badge"
+                  style={{ background: RANK_COLORS[i] }}
+                >
                   {RANK_LABELS[i]}
                 </div>
                 <div className="result-info">
@@ -1515,18 +2636,28 @@ function BattleScreen({
 
       {/* ── 自分のおすすめ選出 ──────────────────────────────────────── */}
       <div className="card">
-        <div className="result-section-title result-section-title--green">自分のおすすめ選出</div>
+        <div className="result-section-title result-section-title--green">
+          自分のおすすめ選出
+        </div>
         {myTeam.length === 0 ? (
           <div className="result-empty">
             <div className="result-empty-icon">📋</div>
-            <div className="result-empty-text">自分のポケモンを登録すると、おすすめ選出が表示されます</div>
-            <div className="result-empty-sub">「自分のポケモン登録」タブからチームを登録してください</div>
+            <div className="result-empty-text">
+              自分のポケモンを登録すると、おすすめ選出が表示されます
+            </div>
+            <div className="result-empty-sub">
+              「自分のポケモン登録」タブからチームを登録してください
+            </div>
           </div>
         ) : validCount === 0 ? (
           <div className="result-empty">
             <div className="result-empty-icon">⬆️</div>
-            <div className="result-empty-text">相手のポケモンを入力すると、おすすめ選出が表示されます</div>
-            <div className="result-empty-sub">入力すると最適な選出が自動で表示されます</div>
+            <div className="result-empty-text">
+              相手のポケモンを入力すると、おすすめ選出が表示されます
+            </div>
+            <div className="result-empty-sub">
+              入力すると最適な選出が自動で表示されます
+            </div>
           </div>
         ) : (
           <>
@@ -1534,27 +2665,71 @@ function BattleScreen({
               相手の予測上位3匹に対して、登録済みポケモンからおすすめを表示します。
             </div>
             {recommendations.map((r, i) => (
-              <div className={`result-pokemon result-pokemon--rank-${i + 1}`} key={r.pokemon.id} data-testid={`result-myteam-${i + 1}`}>
-                <div className="result-rank-badge" style={{ background: RANK_COLORS[i] }}>
+              <div
+                className={`result-pokemon result-pokemon--rank-${i + 1}`}
+                key={r.pokemon.id}
+                data-testid={`result-myteam-${i + 1}`}
+              >
+                <div
+                  className="result-rank-badge"
+                  style={{ background: RANK_COLORS[i] }}
+                >
                   {RANK_LABELS[i]}
                 </div>
                 <div className="result-info">
                   <div className="result-name">{r.pokemon.name}</div>
                   <div className="result-reason">{r.reason}</div>
                   <div className="result-tags">
-                    {r.pokemon.item && <span className="result-tag">持ち物: {r.pokemon.item}</span>}
-                    {r.pokemon.nature && <span className="result-tag">性格: {r.pokemon.nature}</span>}
-                    {r.pokemon.teraType && <span className="result-tag">テラ: {r.pokemon.teraType}</span>}
-                    {r.pokemon.ability && <span className="result-tag">特性: {r.pokemon.ability}</span>}
-                    {r.pokemon.roleTags.map(tag => <span key={tag} className="result-tag">役割: {tag}</span>)}
-                    {[r.pokemon.move1,r.pokemon.move2,r.pokemon.move3,r.pokemon.move4].filter(Boolean).map((move, idx)=><span key={`${move}-${idx}`} className="result-tag">技: {move}</span>)}
+                    {r.pokemon.item && (
+                      <span className="result-tag">
+                        持ち物: {r.pokemon.item}
+                      </span>
+                    )}
+                    {r.pokemon.nature && (
+                      <span className="result-tag">
+                        性格: {r.pokemon.nature}
+                      </span>
+                    )}
+                    {r.pokemon.teraType && (
+                      <span className="result-tag">
+                        テラ: {r.pokemon.teraType}
+                      </span>
+                    )}
+                    {r.pokemon.ability && (
+                      <span className="result-tag">
+                        特性: {r.pokemon.ability}
+                      </span>
+                    )}
+                    {r.pokemon.roleTags.map((tag) => (
+                      <span key={tag} className="result-tag">
+                        役割: {tag}
+                      </span>
+                    ))}
+                    {[
+                      r.pokemon.move1,
+                      r.pokemon.move2,
+                      r.pokemon.move3,
+                      r.pokemon.move4,
+                    ]
+                      .filter(Boolean)
+                      .map((move, idx) => (
+                        <span key={`${move}-${idx}`} className="result-tag">
+                          技: {move}
+                        </span>
+                      ))}
                   </div>
                   <div className="result-tags">
-                    {r.breakdown.map((b, idx) => <span key={`${b.label}-${idx}`} className="result-tag">{b.label} {b.points > 0 ? `+${b.points}` : b.points}</span>)}
+                    {r.breakdown.map((b, idx) => (
+                      <span key={`${b.label}-${idx}`} className="result-tag">
+                        {b.label} {b.points > 0 ? `+${b.points}` : b.points}
+                      </span>
+                    ))}
                   </div>
                 </div>
                 <div className="result-score">
-                  <span className="result-score-num result-score-num--green">{r.score}</span>
+                  <span className="result-score-num result-score-num--green">
+                    {r.score}
+                  </span>
                   <span className="result-score-label">点</span>
                 </div>
               </div>
