@@ -18,6 +18,8 @@ export type PokemonApiData = {
   };
   abilities: string[];
   abilityDetails?: PokemonApiAbility[];
+  imageUrl?: string;
+  officialArtworkUrl?: string;
 };
 
 export const POKEMON_API_NAME_MAP: Record<string, string> = {
@@ -475,6 +477,13 @@ type PokeApiPokemonResponse = {
   types: { type: { name: string } }[];
   stats: { base_stat: number; stat: { name: string } }[];
   abilities: { ability: { name: string }; is_hidden: boolean }[];
+  sprites?: {
+    front_default?: string | null;
+    other?: {
+      [key: string]: { front_default?: string | null } | undefined;
+      home?: { front_default?: string | null };
+    };
+  };
 };
 
 const STAT_API_NAME_MAP: Record<string, keyof PokemonApiData["stats"]> = {
@@ -532,6 +541,21 @@ export function formatAbilityName(apiAbilityName: string): string {
   return ABILITY_API_NAME_MAP[apiAbilityName] ?? "未対応特性";
 }
 
+function getPokemonImageUrls(data: PokeApiPokemonResponse): {
+  imageUrl?: string;
+  officialArtworkUrl?: string;
+} {
+  const officialArtworkUrl =
+    data.sprites?.other?.["official-artwork"]?.front_default ?? undefined;
+  const homeUrl = data.sprites?.other?.home?.front_default ?? undefined;
+  const frontDefaultUrl = data.sprites?.front_default ?? undefined;
+
+  return {
+    imageUrl: officialArtworkUrl ?? homeUrl ?? frontDefaultUrl,
+    officialArtworkUrl,
+  };
+}
+
 function formatPokemonApiData(
   japaneseName: string,
   apiName: string,
@@ -556,6 +580,8 @@ function formatPokemonApiData(
     isHidden: entry.is_hidden,
   }));
 
+  const imageUrls = getPokemonImageUrls(data);
+
   return {
     japaneseName,
     apiName,
@@ -565,6 +591,7 @@ function formatPokemonApiData(
     stats,
     abilities: abilityDetails.map((ability) => ability.name),
     abilityDetails,
+    ...imageUrls,
   };
 }
 
@@ -575,7 +602,7 @@ export async function fetchPokemonApiData(
   if (!apiName) return null;
 
   const cached = getCachedPokemonApiData(japaneseName);
-  if (cached) return cached;
+  if (cached && (cached.imageUrl || cached.officialArtworkUrl)) return cached;
 
   const response = await fetch(`https://pokeapi.co/api/v2/pokemon/${apiName}`);
   if (!response.ok)
