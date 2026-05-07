@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { MOVES } from "./lib/moves";
+import { ABILITY_LIST } from "./lib/abilities";
 
 type Screen = "register" | "battle";
 type BottomView = "home" | "saved" | "guide";
@@ -257,10 +258,14 @@ function toKatakana(str: string): string {
 
 // 正規化して比較（ひらがな・カタカナ両対応）
 function normalize(str: string): string {
-  return toKatakana(str.trim());
+  return toKatakana(str.trim()).toLowerCase();
 }
 
-
+function getOptionSuggestions(input: string, options: readonly string[], emptyLimit = 20): string[] {
+  const query = normalize(input);
+  if (!query) return options.slice(0, emptyLimit);
+  return options.filter(option => normalize(option).includes(query));
+}
 
 function isAllowedMove(name: string): boolean {
   if (!name.trim()) return true;
@@ -270,8 +275,7 @@ function isAllowedMove(name: string): boolean {
 
 function getMoveSuggestions(input: string): string[] {
   if (!input.trim()) return [];
-  const n = normalize(input);
-  return MOVES.filter(m => normalize(m).includes(n));
+  return getOptionSuggestions(input, MOVES, 0);
 }
 
 interface MoveInputProps {
@@ -338,6 +342,77 @@ function MoveInput({ value, onChange, placeholder, testId }: MoveInputProps) {
         </div>
       )}
       {showError && <div className="field-error-msg">この技は使用可能技リストにありません</div>}
+    </div>
+  );
+}
+
+
+function getAbilitySuggestions(input: string): string[] {
+  return getOptionSuggestions(input, ABILITY_LIST, 20).slice(0, 50);
+}
+
+interface AbilityInputProps {
+  value: string;
+  onChange: (val: string) => void;
+  placeholder?: string;
+  testId?: string;
+}
+
+function AbilityInput({ value, onChange, placeholder = "例: さめはだ", testId }: AbilityInputProps) {
+  const [open, setOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const suggestions = getAbilitySuggestions(value);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  useEffect(() => setActiveIndex(0), [value]);
+
+  function pick(ability: string) {
+    onChange(ability);
+    setOpen(false);
+  }
+
+  return (
+    <div className="pokemon-input-wrap" ref={wrapRef}>
+      <input
+        className="field-input"
+        placeholder={placeholder}
+        value={value}
+        data-testid={testId}
+        autoComplete="off"
+        onChange={e => { onChange(e.target.value); setOpen(true); }}
+        onFocus={() => setOpen(true)}
+        onKeyDown={e => {
+          if (!open || suggestions.length === 0) return;
+          if (e.key === "ArrowDown") { e.preventDefault(); setActiveIndex(i => Math.min(i + 1, suggestions.length - 1)); }
+          if (e.key === "ArrowUp") { e.preventDefault(); setActiveIndex(i => Math.max(i - 1, 0)); }
+          if (e.key === "Enter") { e.preventDefault(); pick(suggestions[activeIndex]); }
+          if (e.key === "Escape") setOpen(false);
+        }}
+      />
+      {open && suggestions.length > 0 && (
+        <div className="suggestions-list" role="listbox">
+          {suggestions.map((ability, idx) => (
+            <div
+              key={ability}
+              className={`suggestion-item${idx === activeIndex ? " suggestion-item--active" : ""}`}
+              role="option"
+              aria-selected={idx === activeIndex}
+              onMouseDown={() => pick(ability)}
+              data-testid={`suggestion-ability-${ability}`}
+            >
+              {ability}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -1171,7 +1246,7 @@ function RegisterScreen({ form, setForm, myTeam, onSave, onDelete, onEdit, onCan
             onChange={val => setForm({ ...form, item: val })}
           />
         </div>
-        <div className="field"><label className="field-label">特性</label><input className="field-input" placeholder="例: さめはだ" value={form.ability} onChange={f("ability")} /></div>
+        <div className="field"><label className="field-label">特性</label><AbilityInput value={form.ability} onChange={val => setForm({ ...form, ability: val })} testId="input-ability" /></div>
         <div className="field">
           <label className="field-label">テラスタイプ</label>
           <select className="field-select" value={form.teraType} onChange={f("teraType")}><option value="">選択してください</option>{TERA_TYPES.map(t => <option key={t} value={t}>{t}</option>)}</select>

@@ -99,9 +99,9 @@ body {
 
 .field-input-error { border-color: rgba(255,107,141,.8); }
 .field-ok-msg { color: var(--success); margin-top: 6px; }
-.pokemon-input-wrap { position: relative; }
-.suggestions-list { position: absolute; z-index: 30; top: calc(100% + 6px); left: 0; right: 0; max-height: 240px; overflow-y: auto; border: 1px solid rgba(88,170,255,.45); border-radius: 12px; background: rgba(4,14,36,.98); box-shadow: 0 10px 24px rgba(0,0,0,.45); }
-.suggestion-item { min-height: 44px; display: flex; align-items: center; padding: 10px 12px; border-bottom: 1px solid rgba(88,170,255,.18); }
+.pokemon-input-wrap { position: relative; min-width: 0; }
+.suggestions-list { position: absolute; z-index: 100; top: calc(100% + 6px); left: 0; right: 0; max-height: min(240px, 45dvh); overflow-y: auto; overflow-x: hidden; border: 1px solid rgba(88,170,255,.7); border-radius: 12px; background: rgba(4,14,36,.98); box-shadow: 0 10px 24px rgba(0,0,0,.45), 0 0 0 1px rgba(24,215,255,.16); }
+.suggestion-item { min-height: 44px; display: flex; align-items: center; width: 100%; padding: 10px 12px; border-bottom: 1px solid rgba(88,170,255,.18); overflow-wrap: anywhere; }
 .suggestion-item:last-child { border-bottom: none; }
 .suggestion-item--active,.suggestion-item:hover { background: rgba(31,109,233,.28); }
 .suggestion-highlight { color: #8fe8ff; font-weight: 800; }
