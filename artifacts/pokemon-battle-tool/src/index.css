@@ -133,3 +133,16 @@ body {
   .card-title,.result-section-title { font-size: 1.2rem; }
   .saved-detail-grid { grid-template-columns: 1fr; }
 }
+
+.pokeapi-card { border: 1px solid rgba(83, 237, 195, .35); border-radius: 12px; background: linear-gradient(135deg, rgba(5, 33, 54, .92), rgba(13, 23, 52, .92)); padding: 11px 12px; margin: -2px 0 14px; box-shadow: inset 0 0 0 1px rgba(199,226,255,.06); }
+.pokeapi-card--loading { border-color: rgba(255, 201, 97, .5); }
+.pokeapi-card--error,.pokeapi-card--unsupported { border-color: rgba(255,107,141,.42); }
+.pokeapi-card-title { font-weight: 800; color: #a9eeff; margin-bottom: 5px; }
+.pokeapi-card-note,.pokeapi-card-message { color: var(--text-muted); font-size: 13px; line-height: 1.5; }
+.pokeapi-summary-lines { display: grid; gap: 4px; color: var(--text-main); font-size: 14px; line-height: 1.45; overflow-wrap: anywhere; }
+.recommended-ability-box { margin-top: 8px; border: 1px dashed rgba(83, 237, 195, .42); border-radius: 12px; padding: 9px; background: rgba(7, 18, 45, .64); }
+.recommended-ability-label { color: var(--text-muted); font-size: 13px; margin-bottom: 7px; }
+.recommended-ability-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.recommended-ability-chip { border-radius: 999px; border: 1px solid rgba(83, 237, 195, .62); background: rgba(15, 113, 88, .42); color: #d7fff6; padding: 5px 10px; font-weight: 700; }
+.saved-pokeapi-summary { margin-top: 8px; padding: 9px; border: 1px solid rgba(83, 237, 195, .28); border-radius: 10px; background: rgba(6, 34, 48, .5); }
+.saved-pokeapi-summary strong { display: block; margin-bottom: 4px; color: #a9eeff; }

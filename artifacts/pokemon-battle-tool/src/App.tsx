@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { MOVES } from "./lib/moves";
 import { ABILITY_LIST } from "./lib/abilities";
+import { fetchPokemonApiData, getCachedPokemonApiData, getPokemonApiName, type PokemonApiData } from "./lib/pokeApi";
 
 type Screen = "register" | "battle";
 type BottomView = "home" | "saved" | "guide";
@@ -908,6 +909,9 @@ function scorePlayerPokemon(player: MyPokemon, predictedOpponents: OppPrediction
   if (player.evS >= 24) breakdown.push({ label: "高速", points: 8 });
   if (player.evH >= 24 || player.evB >= 24 || player.evD >= 24) breakdown.push({ label: "耐久", points: 6 });
 
+  const apiData = getCachedPokemonApiData(player.name);
+  if (apiData) breakdown.push(...getPokemonApiRoleBonuses(apiData));
+
   if (hasAnyText(roleText, ["アタッカー"])) breakdown.push({ label: "攻撃役", points: 8 });
   if (hasAnyText(roleText, ["物理"])) breakdown.push({ label: "物理役", points: 5 });
   if (hasAnyText(roleText, ["特殊"])) breakdown.push({ label: "特殊役", points: 5 });
@@ -981,6 +985,36 @@ function formatEVs(p: MyPokemon): string {
   const stats: [string, number][] = [["H", p.evH], ["A", p.evA], ["B", p.evB], ["C", p.evC], ["D", p.evD], ["S", p.evS]];
   const nonZero = stats.filter(([, v]) => v > 0).map(([k, v]) => `${k}${v}`);
   return nonZero.length > 0 ? nonZero.join(" ") : "努力値なし";
+}
+
+function formatPokemonApiStats(data: PokemonApiData): string {
+  const { stats } = data;
+  return `H${stats.hp} A${stats.attack} B${stats.defense} C${stats.specialAttack} D${stats.specialDefense} S${stats.speed}`;
+}
+
+function getPokemonApiRoleBonuses(data: PokemonApiData): ScoreBreakdown[] {
+  const bonuses: ScoreBreakdown[] = [];
+  const { stats } = data;
+  if (stats.speed >= 100) bonuses.push({ label: "PokeAPI高速候補", points: 3 });
+  if (stats.attack >= 120 || stats.specialAttack >= 120) bonuses.push({ label: "PokeAPI高火力候補", points: 3 });
+  if (stats.hp >= 100 || stats.defense >= 100 || stats.specialDefense >= 100) bonuses.push({ label: "PokeAPI耐久候補", points: 3 });
+  return bonuses;
+}
+
+function PokemonApiDataSummary({ data }: { data: PokemonApiData }) {
+  return (
+    <div className="pokeapi-summary-lines">
+      <div>タイプ：{data.types.length > 0 ? data.types.join(" / ") : "未取得"}</div>
+      <div>種族値：{formatPokemonApiStats(data)}</div>
+      <div>特性候補：{data.abilities.length > 0 ? data.abilities.join(" / ") : "未取得"}</div>
+    </div>
+  );
+}
+
+function CachedPokemonApiSummary({ name }: { name: string }) {
+  const data = getCachedPokemonApiData(name);
+  if (!data) return null;
+  return <div className="saved-pokeapi-summary"><strong>PokeAPI補助</strong><PokemonApiDataSummary data={data} /></div>;
 }
 
 // ── App ───────────────────────────────────────────────────────────────────────
@@ -1101,7 +1135,7 @@ export default function App() {
 }
 
 function SavedListScreen({ myTeam, onEdit, onDelete }: { myTeam: MyPokemon[]; onEdit: (p: MyPokemon) => void; onDelete: (id: string) => void }) {
-  return <section className="card saved-list-screen"><h2 className="card-title">保存リスト</h2><p className="subtext">登録した自分のポケモンを確認・編集できます。</p><p className="saved-count">登録済み {myTeam.length}匹</p>{myTeam.length === 0 ? <div className="empty-notice"><p>まだポケモンが登録されていません</p><p>ホームから自分のポケモンを登録してください</p></div> : <div className="saved-list-grid">{myTeam.map(p => <article key={p.id} className="saved-card"><h3 className="saved-name">{p.name || "未設定"}</h3><p className="saved-ev">H{p.evH ?? 0} A{p.evA ?? 0} B{p.evB ?? 0} C{p.evC ?? 0} D{p.evD ?? 0} S{p.evS ?? 0}</p><div className="saved-chip-row">{[p.move1, p.move2, p.move3, p.move4].map((m, i) => <span key={`${p.id}-move-${i}`} className="saved-chip">{m || `技${i + 1} 未設定`}</span>)}</div><div className="saved-detail-grid"><p><strong>性格</strong> {p.nature || "未設定"}</p><p><strong>持ち物</strong> {p.item || "未設定"}</p><p><strong>特性</strong> {p.ability || "未設定"}</p><p><strong>テラスタイプ</strong> {p.teraType || "未設定"}</p><p><strong>選出優先度</strong> {p.pickPriority || "未設定"}</p></div><div className="saved-chip-row">{(p.roleTags ?? []).length > 0 ? p.roleTags.map(tag => <span key={`${p.id}-${tag}`} className="saved-chip">{tag}</span>) : <span className="saved-chip">役割タグ 未設定</span>}</div>{p.memo?.trim() ? <p className="saved-memo"><strong>メモ</strong> {p.memo}</p> : null}<div className="saved-actions"><button type="button" className="btn-secondary saved-action-btn" onClick={() => onEdit(p)} aria-label={`${p.name} を編集`}>編集</button><button type="button" className="btn-danger saved-action-btn" onClick={() => onDelete(p.id)} aria-label={`${p.name} を削除`}>削除</button></div></article>)}</div>}</section>;
+  return <section className="card saved-list-screen"><h2 className="card-title">保存リスト</h2><p className="subtext">登録した自分のポケモンを確認・編集できます。</p><p className="saved-count">登録済み {myTeam.length}匹</p>{myTeam.length === 0 ? <div className="empty-notice"><p>まだポケモンが登録されていません</p><p>ホームから自分のポケモンを登録してください</p></div> : <div className="saved-list-grid">{myTeam.map(p => <article key={p.id} className="saved-card"><h3 className="saved-name">{p.name || "未設定"}</h3><p className="saved-ev">H{p.evH ?? 0} A{p.evA ?? 0} B{p.evB ?? 0} C{p.evC ?? 0} D{p.evD ?? 0} S{p.evS ?? 0}</p><div className="saved-chip-row">{[p.move1, p.move2, p.move3, p.move4].map((m, i) => <span key={`${p.id}-move-${i}`} className="saved-chip">{m || `技${i + 1} 未設定`}</span>)}</div><div className="saved-detail-grid"><p><strong>性格</strong> {p.nature || "未設定"}</p><p><strong>持ち物</strong> {p.item || "未設定"}</p><p><strong>特性</strong> {p.ability || "未設定"}</p><p><strong>テラスタイプ</strong> {p.teraType || "未設定"}</p><p><strong>選出優先度</strong> {p.pickPriority || "未設定"}</p></div><div className="saved-chip-row">{(p.roleTags ?? []).length > 0 ? p.roleTags.map(tag => <span key={`${p.id}-${tag}`} className="saved-chip">{tag}</span>) : <span className="saved-chip">役割タグ 未設定</span>}</div>{p.memo?.trim() ? <p className="saved-memo"><strong>メモ</strong> {p.memo}</p> : null}<CachedPokemonApiSummary name={p.name} /><div className="saved-actions"><button type="button" className="btn-secondary saved-action-btn" onClick={() => onEdit(p)} aria-label={`${p.name} を編集`}>編集</button><button type="button" className="btn-danger saved-action-btn" onClick={() => onDelete(p.id)} aria-label={`${p.name} を削除`}>削除</button></div></article>)}</div>}</section>;
 }
 
 function GuideScreen() { return <section className="card guide-screen"><h2 className="card-title">使い方</h2><p className="subtext">このツールは、ポケモンチャンピオンズの対戦で、相手の選出予測と自分のおすすめ選出を確認するための補助ツールです。</p><div className="guide-steps">{[{ title: "STEP 1 自分のポケモンを登録する", body: "まず、ホーム画面の「自分のポケモン登録」で、自分が使うポケモンを登録します。", details: ["ポケモン名", "努力値", "技4つ", "性格", "持ち物", "特性", "テラスタイプ", "役割タグ", "選出優先度", "メモ"], note: "努力値はチャンピオンズ制に合わせて、合計66、1項目最大32です。" }, { title: "STEP 2 相手の6匹を入力する", body: "相手入力・最適選出画面で、相手のパーティを最大6匹入力します。", note: "全部入力しなくても動きますが、6匹入力した方が予測しやすくなります。" }, { title: "STEP 3 相手の選出予測を見る", body: "入力された相手パーティから、相手が出してきそうな上位3匹を表示します。", details: ["予測順位", "ポケモン名", "予測スコア", "予測理由", "注意点"] }, { title: "STEP 4 自分のおすすめ選出を見る", body: "相手の予測上位3匹に対して、自分の登録済みポケモンからおすすめ3匹を表示します。", details: ["おすすめ順位", "ポケモン名", "スコア", "おすすめ理由", "スコア内訳"] }, { title: "STEP 5 保存リストで確認する", body: "登録済みポケモンは、下部ナビの「保存リスト」から確認できます。編集や削除もここからできます。" }].map((step, idx) => <article key={step.title} className="guide-step-card"><div className="guide-step-badge">STEP {idx + 1}</div><h3>{step.title}</h3><p>{step.body}</p>{step.details ? <ul>{step.details.map(d => <li key={d}>{d}</li>)}</ul> : null}{step.note ? <p className="subtext">{step.note}</p> : null}</article>)}</div><article className="guide-step-card"><div className="guide-step-badge">注意</div><ul><li>このツールの予測は絶対ではありません。</li><li>実際の対戦では、相手の型やプレイングによって結果が変わります。</li><li>あくまで選出を考えるための補助として使ってください。</li><li>データはこのブラウザのlocalStorageに保存されます。</li><li>端末やブラウザを変えると、保存データは引き継がれません。</li></ul></article></section>; }
@@ -1190,10 +1224,59 @@ interface RegisterProps {
 }
 
 function RegisterScreen({ form, setForm, myTeam, onSave, onDelete, onEdit, onCancelEdit, editingId }: RegisterProps) {
+  const [pokeApiStatus, setPokeApiStatus] = useState<"idle" | "loading" | "success" | "unsupported" | "error">("idle");
+  const [pokeApiData, setPokeApiData] = useState<PokemonApiData | null>(null);
+
   function f(key: keyof typeof form) {
     return (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
       setForm({ ...form, [key]: e.target.value });
   }
+
+  useEffect(() => {
+    const name = form.name.trim();
+    let cancelled = false;
+
+    if (!name) {
+      setPokeApiStatus("idle");
+      setPokeApiData(null);
+      return;
+    }
+
+    if (!getPokemonApiName(name)) {
+      setPokeApiStatus("unsupported");
+      setPokeApiData(null);
+      return;
+    }
+
+    const cached = getCachedPokemonApiData(name);
+    if (cached) {
+      setPokeApiData(cached);
+      setPokeApiStatus("success");
+      return;
+    }
+
+    setPokeApiStatus("loading");
+    setPokeApiData(null);
+
+    fetchPokemonApiData(name)
+      .then((data) => {
+        if (cancelled) return;
+        if (data) {
+          setPokeApiData(data);
+          setPokeApiStatus("success");
+        } else {
+          setPokeApiData(null);
+          setPokeApiStatus("unsupported");
+        }
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setPokeApiData(null);
+        setPokeApiStatus("error");
+      });
+
+    return () => { cancelled = true; };
+  }, [form.name]);
 
   const evTotal = EV_STATS.reduce((sum, s) => sum + (form[s.key] as number), 0);
   const evOk = evTotal <= EV_MAX_TOTAL && EV_STATS.every(s => (form[s.key] as number) <= EV_MAX_SINGLE);
@@ -1212,6 +1295,16 @@ function RegisterScreen({ form, setForm, myTeam, onSave, onDelete, onEdit, onCan
             placeholder="例: ガブリアス"
             testId="input-pokemon-name"
           />
+        </div>
+
+        <div className={`pokeapi-card pokeapi-card--${pokeApiStatus}`} data-testid="pokeapi-helper-card">
+          <div className="pokeapi-card-title">PokeAPI補助データ</div>
+          <div className="pokeapi-card-note">チャンピオンズ専用データではないため、タイプ・種族値・特性候補の補助情報として表示します。</div>
+          {pokeApiStatus === "idle" && <div className="pokeapi-card-message">ポケモンを選ぶとタイプ・種族値・特性候補を取得します</div>}
+          {pokeApiStatus === "loading" && <div className="pokeapi-card-message">PokeAPIから補助データを取得中...</div>}
+          {pokeApiStatus === "success" && pokeApiData && <PokemonApiDataSummary data={pokeApiData} />}
+          {pokeApiStatus === "unsupported" && <div className="pokeapi-card-message">このポケモンはPokeAPI連携未対応です</div>}
+          {pokeApiStatus === "error" && <div className="pokeapi-card-message">PokeAPIデータを取得できませんでした。手動入力はそのまま使えます</div>}
         </div>
 
         <EVSection form={form} setForm={setForm} />
@@ -1246,7 +1339,28 @@ function RegisterScreen({ form, setForm, myTeam, onSave, onDelete, onEdit, onCan
             onChange={val => setForm({ ...form, item: val })}
           />
         </div>
-        <div className="field"><label className="field-label">特性</label><AbilityInput value={form.ability} onChange={val => setForm({ ...form, ability: val })} testId="input-ability" /></div>
+        <div className="field">
+          <label className="field-label">特性</label>
+          <AbilityInput value={form.ability} onChange={val => setForm({ ...form, ability: val })} testId="input-ability" />
+          {pokeApiStatus === "success" && pokeApiData && pokeApiData.abilities.length > 0 && (
+            <div className="recommended-ability-box">
+              <div className="recommended-ability-label">おすすめ特性（PokeAPI）</div>
+              <div className="recommended-ability-chips">
+                {pokeApiData.abilities.map(ability => (
+                  <button
+                    key={ability}
+                    type="button"
+                    className="recommended-ability-chip"
+                    onClick={() => setForm({ ...form, ability })}
+                    data-testid={`chip-api-ability-${ability}`}
+                  >
+                    {ability}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
         <div className="field">
           <label className="field-label">テラスタイプ</label>
           <select className="field-select" value={form.teraType} onChange={f("teraType")}><option value="">選択してください</option>{TERA_TYPES.map(t => <option key={t} value={t}>{t}</option>)}</select>
