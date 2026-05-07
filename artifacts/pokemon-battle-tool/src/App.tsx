@@ -1559,11 +1559,11 @@ function formatPokemonApiStats(data: PokemonApiData): string {
 function getPokemonApiRoleBonuses(data: PokemonApiData): ScoreBreakdown[] {
   const bonuses: ScoreBreakdown[] = [];
   const { stats } = data;
-  if (stats.speed >= 100) bonuses.push({ label: "PokeAPI高速候補", points: 3 });
+  if (stats.speed >= 100) bonuses.push({ label: "すばやさ高め", points: 3 });
   if (stats.attack >= 120 || stats.specialAttack >= 120)
-    bonuses.push({ label: "PokeAPI高火力候補", points: 3 });
+    bonuses.push({ label: "火力高め", points: 3 });
   if (stats.hp >= 100 || stats.defense >= 100 || stats.specialDefense >= 100)
-    bonuses.push({ label: "PokeAPI耐久候補", points: 3 });
+    bonuses.push({ label: "耐久高め", points: 3 });
   return bonuses;
 }
 
@@ -1582,12 +1582,56 @@ function PokemonApiDataSummary({ data }: { data: PokemonApiData }) {
   );
 }
 
+type PokemonPortraitSize = "hero" | "saved" | "result";
+
+function PokemonPortrait({
+  name,
+  imageUrl,
+  size = "result",
+}: {
+  name: string;
+  imageUrl?: string;
+  size?: PokemonPortraitSize;
+}) {
+  const [imageFailed, setImageFailed] = useState(false);
+  const altName = name.trim() || "ポケモン";
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [imageUrl]);
+
+  return (
+    <div
+      className={`pokemon-portrait pokemon-portrait--${size}`}
+      aria-label={imageUrl && !imageFailed ? undefined : `${altName}の画像なし`}
+    >
+      {imageUrl && !imageFailed ? (
+        <img
+          src={imageUrl}
+          alt={`${altName}の画像`}
+          loading="lazy"
+          onError={() => setImageFailed(true)}
+        />
+      ) : (
+        <div className="pokemon-portrait-placeholder" aria-hidden="true">
+          <span>?</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function getPokemonImageUrl(name: string): string | undefined {
+  const data = getCachedPokemonApiData(name);
+  return data?.imageUrl ?? data?.officialArtworkUrl;
+}
+
 function CachedPokemonApiSummary({ name }: { name: string }) {
   const data = getCachedPokemonApiData(name);
   if (!data) return null;
   return (
     <div className="saved-pokeapi-summary">
-      <strong>PokeAPI補助</strong>
+      <strong>ポケモン情報</strong>
       <PokemonApiDataSummary data={data} />
     </div>
   );
@@ -2189,9 +2233,9 @@ function RegisterScreen({
           className={`pokeapi-card pokeapi-card--${pokeApiStatus}`}
           data-testid="pokeapi-helper-card"
         >
-          <div className="pokeapi-card-title">PokeAPI補助データ</div>
+          <div className="pokeapi-card-title">ポケモン情報</div>
           <div className="pokeapi-card-note">
-            チャンピオンズ専用データではないため、タイプ・種族値・特性候補の補助情報として表示します。
+            この情報は参考用です。チャンピオンズの内容と違う場合があります。
           </div>
           {pokeApiStatus === "idle" && (
             <div className="pokeapi-card-message">
@@ -2200,20 +2244,27 @@ function RegisterScreen({
           )}
           {pokeApiStatus === "loading" && (
             <div className="pokeapi-card-message">
-              PokeAPIから補助データを取得中...
+              ポケモン情報を取得中...
             </div>
           )}
           {pokeApiStatus === "success" && pokeApiData && (
-            <PokemonApiDataSummary data={pokeApiData} />
+            <div className="pokeapi-summary-with-image">
+              <PokemonPortrait
+                name={pokeApiData.japaneseName || form.name}
+                imageUrl={pokeApiData.imageUrl ?? pokeApiData.officialArtworkUrl}
+                size="hero"
+              />
+              <PokemonApiDataSummary data={pokeApiData} />
+            </div>
           )}
           {pokeApiStatus === "unsupported" && (
             <div className="pokeapi-card-message">
-              このポケモンはPokeAPI連携未対応です
+              このポケモンの詳しい情報はまだありません
             </div>
           )}
           {pokeApiStatus === "error" && (
             <div className="pokeapi-card-message">
-              PokeAPIデータを取得できませんでした。手動入力はそのまま使えます
+              詳しい情報を取得できませんでした。入力はそのまま続けられます
             </div>
           )}
         </div>
@@ -2297,7 +2348,7 @@ function RegisterScreen({
             pokeApiData.abilities.length > 0 && (
               <div className="recommended-ability-box">
                 <div className="recommended-ability-label">
-                  おすすめ特性（PokeAPI）
+                  このポケモンの特性候補
                 </div>
                 <div className="recommended-ability-chips">
                   {getAbilityDetailsForDisplay(pokeApiData).map((ability) => (
@@ -2309,7 +2360,7 @@ function RegisterScreen({
                         setForm({ ...form, ability: ability.name })
                       }
                       data-api-name={ability.apiName}
-                      title={`PokeAPI: ${ability.apiName}`}
+                      title={`特性候補: ${ability.name}`}
                       data-testid={`chip-api-ability-${ability.name}`}
                     >
                       <span className="recommended-ability-name">
@@ -2424,6 +2475,11 @@ function RegisterScreen({
                 key={p.id}
                 data-testid={`card-pokemon-${p.id}`}
               >
+                <PokemonPortrait
+                  name={p.name}
+                  imageUrl={getPokemonImageUrl(p.name)}
+                  size="saved"
+                />
                 <div className="pokemon-card-info">
                   <div className="pokemon-card-name">{p.name}</div>
                   <div className="pokemon-card-meta">
@@ -2518,11 +2574,18 @@ function BattleScreen({
 
   useEffect(() => {
     let cancelled = false;
-    const namesToFetch = predictions
-      .map((prediction) => prediction.name)
-      .filter(
-        (name) => getPokemonApiName(name) && !getCachedPokemonApiData(name),
+    const namesToFetch = Array.from(
+      new Set([
+        ...predictions.map((prediction) => prediction.name),
+        ...myTeam.map((pokemon) => pokemon.name),
+      ]),
+    ).filter((name) => {
+      const cached = getCachedPokemonApiData(name);
+      return (
+        getPokemonApiName(name) &&
+        (!cached || (!cached.imageUrl && !cached.officialArtworkUrl))
       );
+    });
 
     if (namesToFetch.length === 0) return;
 
@@ -2535,7 +2598,10 @@ function BattleScreen({
     return () => {
       cancelled = true;
     };
-  }, [predictions.map((prediction) => prediction.name).join("|")]);
+  }, [
+    predictions.map((prediction) => prediction.name).join("|"),
+    myTeam.map((pokemon) => pokemon.name).join("|"),
+  ]);
 
   const recommendations = recommendPlayerSelection(myTeam, predictions);
 
@@ -2616,6 +2682,11 @@ function BattleScreen({
                 >
                   {RANK_LABELS[i]}
                 </div>
+                <PokemonPortrait
+                  name={p.name}
+                  imageUrl={getPokemonImageUrl(p.name)}
+                  size="result"
+                />
                 <div className="result-info">
                   <div className="result-name">{p.name}</div>
                   <div className="result-reason">{p.reason}</div>
@@ -2676,6 +2747,11 @@ function BattleScreen({
                 >
                   {RANK_LABELS[i]}
                 </div>
+                <PokemonPortrait
+                  name={r.pokemon.name}
+                  imageUrl={getPokemonImageUrl(r.pokemon.name)}
+                  size="result"
+                />
                 <div className="result-info">
                   <div className="result-name">{r.pokemon.name}</div>
                   <div className="result-reason">{r.reason}</div>
