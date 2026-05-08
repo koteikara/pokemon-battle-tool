@@ -2262,6 +2262,11 @@ function formatEVs(p: MyPokemon): string {
   return nonZero.length > 0 ? nonZero.join(" ") : "努力値なし";
 }
 
+function topLabel(entries: MetaUsageEntry[], fallback: string[]) {
+  const metaLabels = entries.slice(0, 2).map((entry) => `${entry.name} ${Math.round(entry.rate)}%`);
+  return metaLabels.length > 0 ? metaLabels : fallback;
+}
+
 function formatPokemonApiStats(data: PokemonApiData): string {
   const { stats } = data;
   return `H${stats.hp} A${stats.attack} B${stats.defense} C${stats.specialAttack} D${stats.specialDefense} S${stats.speed}`;
@@ -2708,6 +2713,17 @@ export default function App() {
   });
   const [form, setForm] = useState(emptyForm());
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [savedCardMetaData, setSavedCardMetaData] = useState<MetaData | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    loadMetaData().then((data) => {
+      if (active) setSavedCardMetaData(data);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     localStorage.setItem("myTeam", JSON.stringify(myTeam));
@@ -2733,6 +2749,21 @@ export default function App() {
   function deleteEntry(id: string) {
     if (!window.confirm("このポケモンを削除しますか？")) return;
     setMyTeam((prev) => prev.filter((p) => p.id !== id));
+  }
+
+  function duplicateEntry(p: MyPokemon) {
+    setMyTeam((prev) => [...prev, { ...p, id: `${Date.now()}-${crypto.randomUUID()}` }]);
+  }
+
+  function moveEntry(id: string, direction: -1 | 1) {
+    setMyTeam((prev) => {
+      const index = prev.findIndex((p) => p.id === id);
+      const target = index + direction;
+      if (index < 0 || target < 0 || target >= prev.length) return prev;
+      const next = [...prev];
+      [next[index], next[target]] = [next[target], next[index]];
+      return next;
+    });
   }
 
   function editEntry(p: MyPokemon) {
@@ -2810,8 +2841,11 @@ export default function App() {
                   onSave={saveForm}
                   onDelete={deleteEntry}
                   onEdit={editEntry}
+                  onDuplicate={duplicateEntry}
+                  onMove={moveEntry}
                   onCancelEdit={cancelEdit}
                   editingId={editingId}
+                  metaData={savedCardMetaData}
                 />
               )}
               {screen === "battle" && (
@@ -2828,6 +2862,9 @@ export default function App() {
               myTeam={myTeam}
               onEdit={editEntry}
               onDelete={deleteEntry}
+              onDuplicate={duplicateEntry}
+              onMove={moveEntry}
+              metaData={savedCardMetaData}
             />
           )}
           {bottomView === "guide" && <GuideScreen />}
@@ -2869,14 +2906,155 @@ export default function App() {
   );
 }
 
+function SavedPokemonCard({
+  pokemon,
+  index,
+  total,
+  onEdit,
+  onDelete,
+  onDuplicate,
+  onMove,
+  metaData,
+}: {
+  pokemon: MyPokemon;
+  index: number;
+  total: number;
+  onEdit: (p: MyPokemon) => void;
+  onDelete: (id: string) => void;
+  onDuplicate: (p: MyPokemon) => void;
+  onMove: (id: string, direction: -1 | 1) => void;
+  metaData: MetaData | null;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const moves = [pokemon.move1, pokemon.move2, pokemon.move3, pokemon.move4]
+    .map((move) => move.trim())
+    .filter(Boolean);
+  const apiData = getCachedPokemonApiData(pokemon.name);
+  const metaEntry = findMetaPokemon(metaData, pokemon.name);
+  const summaryParts = [
+    pokemon.nature ? `性格:${pokemon.nature}` : "性格未設定",
+    pokemon.item ? `持ち物:${pokemon.item}` : "持ち物なし",
+    pokemon.ability ? `特性:${pokemon.ability}` : "特性未設定",
+  ];
+
+  return (
+    <article
+      className={`saved-team-card${expanded ? " saved-team-card--expanded" : ""}`}
+      data-testid={`card-pokemon-${pokemon.id}`}
+    >
+      <button
+        type="button"
+        className="saved-team-card-toggle"
+        onClick={() => setExpanded((prev) => !prev)}
+        aria-expanded={expanded}
+        aria-label={`${pokemon.name || "未設定"}の詳細を${expanded ? "閉じる" : "開く"}`}
+      >
+        <PokemonPortrait
+          name={pokemon.name}
+          imageUrl={getPokemonImageUrl(pokemon.name)}
+          size="saved"
+        />
+        <span className="saved-team-main">
+          <span className="saved-name-row">
+            <strong className="saved-name">{pokemon.name || "未設定"}</strong>
+            <span className="saved-expand-hint">{expanded ? "閉じる" : "詳細"}</span>
+          </span>
+          <span className="saved-ev">{formatEVs(pokemon)}</span>
+          <span className="saved-summary-line">{summaryParts.join(" / ")}</span>
+        </span>
+      </button>
+
+      <div className="saved-chip-row saved-chip-row--compact" aria-label="基本情報">
+        {pokemon.teraType && <span className="saved-chip">テラ:{pokemon.teraType}</span>}
+        {pokemon.pickPriority && <span className="saved-chip">優先:{pokemon.pickPriority}</span>}
+        {pokemon.roleTags.length > 0
+          ? pokemon.roleTags.map((tag) => (
+              <span key={`${pokemon.id}-role-${tag}`} className="saved-chip saved-chip--role">
+                {tag}
+              </span>
+            ))
+          : <span className="saved-chip">役割タグなし</span>}
+      </div>
+
+      <div className="saved-actions saved-actions--compact">
+        <button type="button" className="btn-secondary saved-action-btn" onClick={() => onMove(pokemon.id, -1)} disabled={index === 0}>
+          上へ
+        </button>
+        <button type="button" className="btn-secondary saved-action-btn" onClick={() => onMove(pokemon.id, 1)} disabled={index === total - 1}>
+          下へ
+        </button>
+        <button type="button" className="btn-secondary saved-action-btn" onClick={() => onEdit(pokemon)} data-testid={`btn-edit-${pokemon.id}`}>
+          編集
+        </button>
+        <button type="button" className="btn-secondary saved-action-btn" onClick={() => onDuplicate(pokemon)}>
+          複製
+        </button>
+        <button type="button" className="btn-danger saved-action-btn" onClick={() => onDelete(pokemon.id)} data-testid={`btn-delete-${pokemon.id}`}>
+          削除
+        </button>
+      </div>
+
+      {expanded && (
+        <div className="saved-team-detail">
+          <div className="saved-detail-block">
+            <strong>技</strong>
+            <div className="saved-chip-row saved-chip-row--compact">
+              {moves.length > 0
+                ? moves.map((move) => <span key={`${pokemon.id}-move-${move}`} className="saved-chip">{move}</span>)
+                : <span className="saved-chip">技未設定</span>}
+            </div>
+          </div>
+          <div className="saved-detail-grid">
+            <p><strong>テラスタイプ</strong> {pokemon.teraType || "未設定"}</p>
+            <p><strong>性格</strong> {pokemon.nature || "未設定"}</p>
+            <p><strong>持ち物</strong> {pokemon.item || "未設定"}</p>
+            <p><strong>特性</strong> {pokemon.ability || "未設定"}</p>
+          </div>
+          <div className="saved-detail-block">
+            <strong>役割タグ</strong>
+            <div className="saved-chip-row saved-chip-row--compact">
+              {pokemon.roleTags.length > 0
+                ? pokemon.roleTags.map((tag) => <span key={`${pokemon.id}-detail-role-${tag}`} className="saved-chip saved-chip--role">{tag}</span>)
+                : <span className="saved-chip">役割タグなし</span>}
+            </div>
+          </div>
+          {pokemon.memo.trim() ? <p className="saved-memo"><strong>メモ</strong> {pokemon.memo}</p> : null}
+          {apiData && (
+            <div className="saved-detail-block saved-data-box">
+              <strong>補助データ</strong>
+              <PokemonApiDataSummary data={apiData} />
+            </div>
+          )}
+          {metaEntry && (
+            <div className="saved-detail-block saved-data-box">
+              <strong>採用傾向</strong>
+              <div className="pokeapi-summary-lines">
+                <div>採用数：{metaEntry.usageCount}</div>
+                <div>持ち物：{topLabel(metaEntry.items ?? [], ["データなし"]).join("、")}</div>
+                <div>テラ：{topLabel(metaEntry.teraTypes ?? [], ["データなし"]).join("、")}</div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </article>
+  );
+}
+
 function SavedListScreen({
   myTeam,
   onEdit,
   onDelete,
+  onDuplicate,
+  onMove,
+  metaData,
 }: {
   myTeam: MyPokemon[];
   onEdit: (p: MyPokemon) => void;
   onDelete: (id: string) => void;
+  onDuplicate: (p: MyPokemon) => void;
+  onMove: (id: string, direction: -1 | 1) => void;
+  metaData: MetaData | null;
 }) {
   return (
     <section className="card saved-list-screen">
@@ -2889,74 +3067,19 @@ function SavedListScreen({
           <p>ホームから自分のポケモンを登録してください</p>
         </div>
       ) : (
-        <div className="saved-list-grid">
-          {myTeam.map((p) => (
-            <article key={p.id} className="saved-card">
-              <h3 className="saved-name">{p.name || "未設定"}</h3>
-              <p className="saved-ev">
-                H{p.evH ?? 0} A{p.evA ?? 0} B{p.evB ?? 0} C{p.evC ?? 0} D
-                {p.evD ?? 0} S{p.evS ?? 0}
-              </p>
-              <div className="saved-chip-row">
-                {[p.move1, p.move2, p.move3, p.move4].map((m, i) => (
-                  <span key={`${p.id}-move-${i}`} className="saved-chip">
-                    {m || `技${i + 1} 未設定`}
-                  </span>
-                ))}
-              </div>
-              <div className="saved-detail-grid">
-                <p>
-                  <strong>性格</strong> {p.nature || "未設定"}
-                </p>
-                <p>
-                  <strong>持ち物</strong> {p.item || "未設定"}
-                </p>
-                <p>
-                  <strong>特性</strong> {p.ability || "未設定"}
-                </p>
-                <p>
-                  <strong>テラスタイプ</strong> {p.teraType || "未設定"}
-                </p>
-                <p>
-                  <strong>選出優先度</strong> {p.pickPriority || "未設定"}
-                </p>
-              </div>
-              <div className="saved-chip-row">
-                {(p.roleTags ?? []).length > 0 ? (
-                  p.roleTags.map((tag) => (
-                    <span key={`${p.id}-${tag}`} className="saved-chip">
-                      {tag}
-                    </span>
-                  ))
-                ) : (
-                  <span className="saved-chip">役割タグ 未設定</span>
-                )}
-              </div>
-              {p.memo?.trim() ? (
-                <p className="saved-memo">
-                  <strong>メモ</strong> {p.memo}
-                </p>
-              ) : null}
-              <CachedPokemonApiSummary name={p.name} />
-              <div className="saved-actions">
-                <button
-                  type="button"
-                  className="btn-secondary saved-action-btn"
-                  onClick={() => onEdit(p)}
-                  aria-label={`${p.name} を編集`}
-                >
-                  編集
-                </button>
-                <button
-                  type="button"
-                  className="btn-danger saved-action-btn"
-                  onClick={() => onDelete(p.id)}
-                  aria-label={`${p.name} を削除`}
-                >
-                  削除
-                </button>
-              </div>
-            </article>
+        <div className="saved-list-grid saved-list-grid--compact">
+          {myTeam.map((p, index) => (
+            <SavedPokemonCard
+              key={p.id}
+              pokemon={p}
+              index={index}
+              total={myTeam.length}
+              onEdit={onEdit}
+              onDelete={onDelete}
+              onDuplicate={onDuplicate}
+              onMove={onMove}
+              metaData={metaData}
+            />
           ))}
         </div>
       )}
@@ -3233,8 +3356,11 @@ interface RegisterProps {
   onSave: () => void;
   onDelete: (id: string) => void;
   onEdit: (p: MyPokemon) => void;
+  onDuplicate: (p: MyPokemon) => void;
+  onMove: (id: string, direction: -1 | 1) => void;
   onCancelEdit: () => void;
   editingId: string | null;
+  metaData: MetaData | null;
 }
 
 function RegisterScreen({
@@ -3244,8 +3370,11 @@ function RegisterScreen({
   onSave,
   onDelete,
   onEdit,
+  onDuplicate,
+  onMove,
   onCancelEdit,
   editingId,
+  metaData,
 }: RegisterProps) {
   const [pokeApiStatus, setPokeApiStatus] = useState<
     "idle" | "loading" | "success" | "unsupported" | "error"
@@ -3617,85 +3746,19 @@ function RegisterScreen({
         {myTeam.length === 0 ? (
           <div className="empty-state">まだポケモンが登録されていません</div>
         ) : (
-          <div className="pokemon-list">
-            {myTeam.map((p) => (
-              <div
-                className="pokemon-card"
+          <div className="saved-list-grid saved-list-grid--compact">
+            {myTeam.map((p, index) => (
+              <SavedPokemonCard
                 key={p.id}
-                data-testid={`card-pokemon-${p.id}`}
-              >
-                <PokemonPortrait
-                  name={p.name}
-                  imageUrl={getPokemonImageUrl(p.name)}
-                  size="saved"
-                />
-                <div className="pokemon-card-info">
-                  <div className="pokemon-card-name">{p.name}</div>
-                  <div className="pokemon-card-meta">
-                    {p.nature && (
-                      <span className="pokemon-card-tag">{p.nature}</span>
-                    )}
-                    {p.item && (
-                      <span className="pokemon-card-tag">{p.item}</span>
-                    )}
-                    {p.ability && (
-                      <span className="pokemon-card-tag">{p.ability}</span>
-                    )}
-                    {p.teraType && (
-                      <span className="pokemon-card-tag">
-                        テラ:{p.teraType}
-                      </span>
-                    )}
-                    {p.pickPriority && (
-                      <span className="pokemon-card-tag">
-                        優先:{p.pickPriority}
-                      </span>
-                    )}
-                    {p.roleTags?.map((t, i) => (
-                      <span className="pokemon-card-tag" key={`rt-${i}`}>
-                        {t}
-                      </span>
-                    ))}
-                    <span className="pokemon-card-tag">{formatEVs(p)}</span>
-                    {[p.move1, p.move2, p.move3, p.move4]
-                      .filter(Boolean)
-                      .map((m, i) => (
-                        <span className="pokemon-card-tag" key={i}>
-                          {m}
-                        </span>
-                      ))}
-                  </div>
-                  {p.memo && (
-                    <div className="result-reason" style={{ marginTop: 6 }}>
-                      メモ: {p.memo}
-                    </div>
-                  )}
-                </div>
-                <div
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "4px",
-                    alignItems: "flex-end",
-                  }}
-                >
-                  <button
-                    className="btn-secondary"
-                    style={{ padding: "6px 12px", fontSize: 13 }}
-                    onClick={() => onEdit(p)}
-                    data-testid={`btn-edit-${p.id}`}
-                  >
-                    編集
-                  </button>
-                  <button
-                    className="btn-danger"
-                    onClick={() => onDelete(p.id)}
-                    data-testid={`btn-delete-${p.id}`}
-                  >
-                    削除
-                  </button>
-                </div>
-              </div>
+                pokemon={p}
+                index={index}
+                total={myTeam.length}
+                onEdit={onEdit}
+                onDelete={onDelete}
+                onDuplicate={onDuplicate}
+                onMove={onMove}
+                metaData={metaData}
+              />
             ))}
           </div>
         )}
@@ -3859,14 +3922,6 @@ function getSpeechRecognitionConstructor(): SpeechRecognitionConstructor | null 
   return speechWindow.SpeechRecognition ?? speechWindow.webkitSpeechRecognition ?? null;
 }
 
-function splitSpokenPokemon(text: string): string[] {
-  return text
-    .split(/[、,，\n\r\t ]+/)
-    .map((name) => name.trim())
-    .filter(Boolean)
-    .slice(0, 6);
-}
-
 function getCanonicalPokemonName(name: string): string {
   const normalizedName = normalize(name);
   return (
@@ -3932,7 +3987,7 @@ function BattleScreen({
   const predictions = predictOpponent(opponent, publicMetaData);
   const [, setPokeApiCacheVersion] = useState(0);
   const [opponentMessage, setOpponentMessage] = useState("");
-  const [listeningSlot, setListeningSlot] = useState<number | "bulk" | null>(null);
+  const [listeningSlot, setListeningSlot] = useState<number | null>(null);
   const [showMorePopular, setShowMorePopular] = useState(false);
   const validCount = opponent.filter((s) => s.trim() && isAllowed(s)).length;
   const filledCount = opponent.filter((s) => s.trim()).length;
@@ -4044,30 +4099,13 @@ function BattleScreen({
     showOpponentMessage(`${canonicalName}を${emptyIndex + 1}番に追加しました`);
   }
 
-  function applyBulkSpeechText(text: string) {
-    const names = splitSpokenPokemon(text).map(getCanonicalPokemonName);
-    if (names.length === 0) {
-      showOpponentMessage("聞き取れませんでした");
-      return;
-    }
-    const next = ["", "", "", "", "", ""];
-    names.forEach((name, index) => {
-      next[index] = name;
-    });
-    setOpponent(next);
-    showOpponentMessage(`${names.length}匹を入力しました`);
-  }
-
-  function startSpeechInput(slotIndex?: number) {
+  function startSpeechInput(slotIndex: number) {
     const SpeechRecognition = getSpeechRecognitionConstructor();
 
     if (!SpeechRecognition) {
-      const fallbackText = slotIndex === undefined
-        ? window.prompt("6匹を、区切って入力してください")
-        : window.prompt(`${slotIndex + 1}番に入れるポケモン名`);
+      const fallbackText = window.prompt(`${slotIndex + 1}番に入れるポケモン名`);
       if (!fallbackText) return;
-      if (slotIndex === undefined) applyBulkSpeechText(fallbackText);
-      else update(slotIndex, getCanonicalPokemonName(fallbackText));
+      update(slotIndex, getCanonicalPokemonName(fallbackText));
       return;
     }
 
@@ -4075,14 +4113,17 @@ function BattleScreen({
     recognition.lang = "ja-JP";
     recognition.interimResults = false;
     recognition.maxAlternatives = 1;
-    setListeningSlot(slotIndex ?? "bulk");
+    setListeningSlot(slotIndex);
     recognition.onresult = (event) => {
       const transcript = Array.from(event.results)
         .map((result) => result[0]?.transcript ?? "")
         .join(" ")
         .trim();
-      if (slotIndex === undefined) applyBulkSpeechText(transcript);
-      else update(slotIndex, getCanonicalPokemonName(transcript));
+      if (!transcript) {
+        showOpponentMessage("聞き取れませんでした");
+        return;
+      }
+      update(slotIndex, getCanonicalPokemonName(transcript));
     };
     recognition.onerror = () => {
       showOpponentMessage("音声入力が使えませんでした");
@@ -4120,15 +4161,7 @@ function BattleScreen({
           </div>
         </div>
 
-        <div className="opponent-toolbar">
-          <button
-            type="button"
-            className="retro-action-button retro-action-button--primary"
-            onClick={() => startSpeechInput()}
-            aria-label="まとめて音声入力"
-          >
-            {listeningSlot === "bulk" ? "聞いています…" : "🎤 まとめて音声入力"}
-          </button>
+        <div className="opponent-toolbar opponent-toolbar--simple">
           <button
             type="button"
             className="retro-action-button"
@@ -4458,6 +4491,9 @@ function BattleScreen({
                     </div>
                   </CollapsibleReasonNote>
                   <div className="result-tags recommendation-ability">
+                    <span className="result-tag">
+                      努力値: {formatEVs(r.pokemon)}
+                    </span>
                     {r.pokemon.item && (
                       <span className="result-tag">
                         持ち物: {r.pokemon.item}
