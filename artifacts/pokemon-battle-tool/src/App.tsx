@@ -24,8 +24,9 @@ import {
 type Screen = "register" | "battle";
 type BottomView = "home" | "saved" | "guide";
 
-const HEADER_STADIUM_BG_URL = `${import.meta.env.BASE_URL}header-stadium-bg.svg`;
-const HEADER_TITLE_URL = `${import.meta.env.BASE_URL}header-title-battle.svg`;
+const HEADER_STADIUM_BG_URL = `${import.meta.env.BASE_URL}header-stadium-bg.png`;
+const HEADER_TITLE_URL = `${import.meta.env.BASE_URL}header-title-battle.png`;
+const BATTLE_VS_BADGE_URL = `${import.meta.env.BASE_URL}battle-vs-badge.png`;
 
 // モバイルSafari向けの通常Webサイト（PWA/ネイティブ前提ではない）
 
@@ -2037,9 +2038,12 @@ function BattleHeader() {
           aria-label="ランダムに選ばれた2匹のポケモンの対戦表示"
         >
           <BattleHeaderPokemon pokemon={pokemon[0]} side="left" />
-          <div className="battle-header-vs" aria-label="対戦">
-            VS
-          </div>
+          <img
+            className="battle-vs-badge"
+            src={BATTLE_VS_BADGE_URL}
+            alt="VS"
+            draggable={false}
+          />
           <BattleHeaderPokemon pokemon={pokemon[1]} side="right" />
         </div>
       </header>
