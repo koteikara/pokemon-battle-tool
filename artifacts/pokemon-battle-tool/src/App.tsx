@@ -441,7 +441,10 @@ function SearchableSelect({
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const wrapRef = useRef<HTMLDivElement>(null);
-  const suggestions = getOptionSuggestions(value, options, emptyLimit).slice(0, 50);
+  const suggestions = getOptionSuggestions(value, options, emptyLimit).slice(
+    0,
+    50,
+  );
   const listId = `${testId ?? label}-suggestions`;
 
   useEffect(() => {
@@ -498,7 +501,11 @@ function SearchableSelect({
           }}
         />
         {open && (
-          <div className="suggestions-list searchable-select-list" id={listId} role="listbox">
+          <div
+            className="suggestions-list searchable-select-list"
+            id={listId}
+            role="listbox"
+          >
             {suggestions.length > 0 ? (
               suggestions.map((option, idx) => (
                 <button
@@ -1427,8 +1434,13 @@ function scoreMoveDataBonuses(
 ): ScoreBreakdown[] {
   const breakdown: ScoreBreakdown[] = [];
   const apiMoves = moves.filter(
-    (move): move is { name: string; apiData: MoveApiData; type: PokemonType | null } =>
-      move.apiData !== null,
+    (
+      move,
+    ): move is {
+      name: string;
+      apiData: MoveApiData;
+      type: PokemonType | null;
+    } => move.apiData !== null,
   );
   if (apiMoves.length === 0) return breakdown;
 
@@ -1441,12 +1453,16 @@ function scoreMoveDataBonuses(
   });
 
   const physicalAttackCount = apiMoves.filter(
-    (move) => move.apiData.damageClass === "物理" && isAttackingMove(move.apiData),
+    (move) =>
+      move.apiData.damageClass === "物理" && isAttackingMove(move.apiData),
   ).length;
   const specialAttackCount = apiMoves.filter(
-    (move) => move.apiData.damageClass === "特殊" && isAttackingMove(move.apiData),
+    (move) =>
+      move.apiData.damageClass === "特殊" && isAttackingMove(move.apiData),
   ).length;
-  const attackingMoveCount = apiMoves.filter((move) => isAttackingMove(move.apiData)).length;
+  const attackingMoveCount = apiMoves.filter((move) =>
+    isAttackingMove(move.apiData),
+  ).length;
 
   const hasPriorityMove = apiMoves.some((move) => move.apiData.priority >= 1);
   if (hasPriorityMove) breakdown.push({ label: "先制技あり", points: 5 });
@@ -1465,7 +1481,11 @@ function scoreMoveDataBonuses(
 
   const typedOpponents = predictedOpponents
     .slice(0, 3)
-    .map((opp, index) => ({ ...opp, index, types: getKnownPokemonTypes(opp.name) }))
+    .map((opp, index) => ({
+      ...opp,
+      index,
+      types: getKnownPokemonTypes(opp.name),
+    }))
     .filter((opp) => opp.types.length > 0);
 
   let hasPower100SuperEffective = false;
@@ -1508,8 +1528,13 @@ function scoreTypeMatchups(
   moveDetails = getPlayerMoveDetails(player),
 ): ScoreBreakdown[] {
   const moves = moveDetails.filter(
-    (move): move is { name: string; apiData: MoveApiData | null; type: PokemonType } =>
-      move.type !== null,
+    (
+      move,
+    ): move is {
+      name: string;
+      apiData: MoveApiData | null;
+      type: PokemonType;
+    } => move.type !== null,
   );
   if (moves.length === 0) return [];
 
@@ -1717,7 +1742,9 @@ function scorePlayerPokemon(
       breakdown.push({ label: entry.label, points: entry.points });
   });
 
-  breakdown.push(...scoreMoveDataBonuses(player, predictedOpponents, moveDetails));
+  breakdown.push(
+    ...scoreMoveDataBonuses(player, predictedOpponents, moveDetails),
+  );
   breakdown.push(...scoreTypeMatchups(player, predictedOpponents, moveDetails));
 
   const score = breakdown.reduce((sum, b) => sum + b.points, 0);
@@ -1800,12 +1827,17 @@ function PokemonApiDataSummary({ data }: { data: PokemonApiData }) {
   return (
     <div className="pokeapi-summary-lines">
       <div>
-        タイプ：{data.types.length > 0 ? data.types.join(" / ") : "まだ情報がありません"}
+        タイプ：
+        {data.types.length > 0
+          ? data.types.join(" / ")
+          : "まだ情報がありません"}
       </div>
       <div>種族値：{formatPokemonApiStats(data)}</div>
       <div>
         特性候補：
-        {data.abilities.length > 0 ? data.abilities.join(" / ") : "まだ情報がありません"}
+        {data.abilities.length > 0
+          ? data.abilities.join(" / ")
+          : "まだ情報がありません"}
       </div>
     </div>
   );
@@ -1866,7 +1898,6 @@ function CachedPokemonApiSummary({ name }: { name: string }) {
   );
 }
 
-
 type MoveInfoStatus = "loading" | "success" | "unsupported" | "error";
 type MoveInfoState = {
   moveName: string;
@@ -1878,8 +1909,16 @@ function MoveTypeChip({ type }: { type: PokemonType | null }) {
   return <span className="move-type-chip">{type ?? "タイプ不明"}</span>;
 }
 
-function MoveDamageBadge({ damageClass }: { damageClass: MoveApiData["damageClass"] }) {
-  return <span className={`move-damage-badge move-damage-badge--${damageClass}`}>{damageClass}</span>;
+function MoveDamageBadge({
+  damageClass,
+}: {
+  damageClass: MoveApiData["damageClass"];
+}) {
+  return (
+    <span className={`move-damage-badge move-damage-badge--${damageClass}`}>
+      {damageClass}
+    </span>
+  );
 }
 
 function MoveInfoCards({ states }: { states: MoveInfoState[] }) {
@@ -1890,19 +1929,34 @@ function MoveInfoCards({ states }: { states: MoveInfoState[] }) {
       <div className="move-info-title">技情報</div>
       <div className="move-info-grid">
         {states.map((state, index) => (
-          <div className={`move-info-card move-info-card--${state.status}`} key={`${state.moveName}-${index}`}>
+          <div
+            className={`move-info-card move-info-card--${state.status}`}
+            key={`${state.moveName}-${index}`}
+          >
             <div className="move-info-name">{state.moveName}</div>
-            {state.status === "loading" && <div className="move-info-message">技情報を読み込み中...</div>}
+            {state.status === "loading" && (
+              <div className="move-info-message">詳しい情報を取得中...</div>
+            )}
             {state.status === "unsupported" && (
-              <div className="move-info-message">詳しい技情報はまだありません</div>
+              <div className="move-info-message">
+                詳しい技情報はまだありません
+              </div>
             )}
             {state.status === "error" && (
-              <div className="move-info-message">技情報を表示できませんでした。入力はそのまま続けられます</div>
+              <div className="move-info-message">
+                技情報を表示できませんでした。入力はそのまま続けられます
+              </div>
             )}
             {state.status === "success" && state.data && (
               <div className="move-info-lines">
-                <div>タイプ：<MoveTypeChip type={state.data.type} /></div>
-                <div>分類：<MoveDamageBadge damageClass={state.data.damageClass} /></div>
+                <div>
+                  タイプ：
+                  <MoveTypeChip type={state.data.type} />
+                </div>
+                <div>
+                  分類：
+                  <MoveDamageBadge damageClass={state.data.damageClass} />
+                </div>
                 <div>威力：{state.data.power ?? "なし"}</div>
                 <div>命中：{state.data.accuracy ?? "なし"}</div>
                 <div>優先度：{state.data.priority}</div>
@@ -1915,24 +1969,41 @@ function MoveInfoCards({ states }: { states: MoveInfoState[] }) {
   );
 }
 
-function getMoveTeamChecks(form: Pick<MyPokemon, "evA" | "evC">, states: MoveInfoState[]): Array<{ kind: "good" | "warn"; label: string }> {
+function getMoveTeamChecks(
+  form: Pick<MyPokemon, "evA" | "evC">,
+  states: MoveInfoState[],
+): Array<{ kind: "good" | "warn"; label: string }> {
   const knownMoves = states
     .map((state) => state.data)
     .filter((data): data is MoveApiData => data !== null);
   if (knownMoves.length === 0) return [];
 
   const attackingMoves = knownMoves.filter(isAttackingMove);
-  const physicalCount = attackingMoves.filter((move) => move.damageClass === "物理").length;
-  const specialCount = attackingMoves.filter((move) => move.damageClass === "特殊").length;
-  const statusCount = knownMoves.filter((move) => move.damageClass === "変化").length;
+  const physicalCount = attackingMoves.filter(
+    (move) => move.damageClass === "物理",
+  ).length;
+  const specialCount = attackingMoves.filter(
+    (move) => move.damageClass === "特殊",
+  ).length;
+  const statusCount = knownMoves.filter(
+    (move) => move.damageClass === "変化",
+  ).length;
   const checks: Array<{ kind: "good" | "warn"; label: string }> = [];
 
-  if (attackingMoves.length === 0) checks.push({ kind: "warn", label: "攻撃技がありません" });
+  if (attackingMoves.length === 0)
+    checks.push({ kind: "warn", label: "攻撃技がありません" });
   if (form.evA >= 24 && physicalCount === 0)
-    checks.push({ kind: "warn", label: "Aに多く振っていますが、物理技が少なめです" });
+    checks.push({
+      kind: "warn",
+      label: "Aに多く振っていますが、物理技が少なめです",
+    });
   if (form.evC >= 24 && specialCount === 0)
-    checks.push({ kind: "warn", label: "Cに多く振っていますが、特殊技が少なめです" });
-  if (statusCount >= 3) checks.push({ kind: "warn", label: "変化技が多めです" });
+    checks.push({
+      kind: "warn",
+      label: "Cに多く振っていますが、特殊技が少なめです",
+    });
+  if (statusCount >= 3)
+    checks.push({ kind: "warn", label: "変化技が多めです" });
   if (knownMoves.some((move) => move.priority >= 1))
     checks.push({ kind: "good", label: "先制技があります" });
   if (form.evA >= 24 && physicalCount > 0)
@@ -1943,12 +2014,19 @@ function getMoveTeamChecks(form: Pick<MyPokemon, "evA" | "evC">, states: MoveInf
   return checks;
 }
 
-function MoveTeamChecks({ checks }: { checks: Array<{ kind: "good" | "warn"; label: string }> }) {
+function MoveTeamChecks({
+  checks,
+}: {
+  checks: Array<{ kind: "good" | "warn"; label: string }>;
+}) {
   if (checks.length === 0) return null;
   return (
     <div className="move-check-list">
       {checks.map((check) => (
-        <span key={`${check.kind}-${check.label}`} className={`move-check move-check--${check.kind}`}>
+        <span
+          key={`${check.kind}-${check.label}`}
+          className={`move-check move-check--${check.kind}`}
+        >
           {check.label}
         </span>
       ))}
@@ -2058,98 +2136,113 @@ export default function App() {
   return (
     <div id="app-root">
       <div className="app-bg-layer" aria-hidden="true" />
-      <header className="site-header">
-        <div className="site-header-icon" aria-hidden="true" />
-        <div className="site-header-copy">
-          <h1>ポケモンバトルツール</h1>
-          <p>相手の選出を予測して、自分のおすすめを確認できます。</p>
-        </div>
-      </header>
+      <div className="pokedex-shell">
+        <header className="site-header">
+          <div className="site-header-icon" aria-hidden="true" />
+          <div className="site-header-lamps" aria-hidden="true">
+            <span className="site-header-lamp site-header-lamp--red" />
+            <span className="site-header-lamp site-header-lamp--yellow" />
+            <span className="site-header-lamp site-header-lamp--green" />
+          </div>
+          <div className="site-header-copy">
+            <h1>ポケモンバトルツール</h1>
+            <p>相手の選出を予測して、自分のおすすめを確認できます。</p>
+          </div>
+        </header>
 
-      {bottomView === "home" && (
-        <>
-          <nav className="tab-bar">
-            <button
-              className={`tab-btn${screen === "register" ? " tab-btn--active" : ""}`}
-              onClick={() => {
-                setScreen("register");
-                cancelEdit();
-              }}
-              data-testid="tab-register"
-            >
-              <span className="tab-icon">📋</span>
-              <span className="tab-label">自分のポケモン登録</span>
-            </button>
-            <button
-              className={`tab-btn${screen === "battle" ? " tab-btn--active" : ""}`}
-              onClick={() => setScreen("battle")}
-              data-testid="tab-battle"
-            >
-              <span className="tab-icon">⚔️</span>
-              <span className="tab-label">相手入力・おすすめ選出</span>
-            </button>
-          </nav>
-          {screen === "register" && (
-            <RegisterScreen
-              form={form}
-              setForm={setForm}
+        <main className="pokedex-screen-panel">
+          {bottomView === "home" && (
+            <>
+              <nav className="tab-bar" aria-label="ホームメニュー">
+                <button
+                  type="button"
+                  className={`tab-btn${screen === "register" ? " tab-btn--active" : ""}`}
+                  aria-current={screen === "register" ? "page" : undefined}
+                  aria-pressed={screen === "register"}
+                  onClick={() => {
+                    setScreen("register");
+                    cancelEdit();
+                  }}
+                  data-testid="tab-register"
+                >
+                  <span className="tab-icon">📋</span>
+                  <span className="tab-label">自分のポケモン登録</span>
+                </button>
+                <button
+                  type="button"
+                  className={`tab-btn${screen === "battle" ? " tab-btn--active" : ""}`}
+                  aria-current={screen === "battle" ? "page" : undefined}
+                  aria-pressed={screen === "battle"}
+                  onClick={() => setScreen("battle")}
+                  data-testid="tab-battle"
+                >
+                  <span className="tab-icon">⚔️</span>
+                  <span className="tab-label">相手入力・おすすめ選出</span>
+                </button>
+              </nav>
+              {screen === "register" && (
+                <RegisterScreen
+                  form={form}
+                  setForm={setForm}
+                  myTeam={myTeam}
+                  onSave={saveForm}
+                  onDelete={deleteEntry}
+                  onEdit={editEntry}
+                  onCancelEdit={cancelEdit}
+                  editingId={editingId}
+                />
+              )}
+              {screen === "battle" && (
+                <BattleScreen
+                  opponent={opponent}
+                  setOpponent={setOpponent}
+                  myTeam={myTeam}
+                />
+              )}
+            </>
+          )}
+          {bottomView === "saved" && (
+            <SavedListScreen
               myTeam={myTeam}
-              onSave={saveForm}
-              onDelete={deleteEntry}
               onEdit={editEntry}
-              onCancelEdit={cancelEdit}
-              editingId={editingId}
+              onDelete={deleteEntry}
             />
           )}
-          {screen === "battle" && (
-            <BattleScreen
-              opponent={opponent}
-              setOpponent={setOpponent}
-              myTeam={myTeam}
-            />
-          )}
-        </>
-      )}
-      {bottomView === "saved" && (
-        <SavedListScreen
-          myTeam={myTeam}
-          onEdit={editEntry}
-          onDelete={deleteEntry}
-        />
-      )}
-      {bottomView === "guide" && <GuideScreen />}
-      <footer className="bottom-nav" aria-label="補助ナビゲーション">
-        <button
-          type="button"
-          className={`bottom-nav-item${bottomView === "home" ? " bottom-nav-item--active" : ""}`}
-          onClick={() => setBottomView("home")}
-          aria-current={bottomView === "home" ? "page" : undefined}
-          aria-pressed={bottomView === "home"}
-        >
-          <span aria-hidden="true">⌂</span>
-          <span>ホーム</span>
-        </button>
-        <button
-          type="button"
-          className={`bottom-nav-item${bottomView === "saved" ? " bottom-nav-item--active" : ""}`}
-          onClick={() => setBottomView("saved")}
-          aria-current={bottomView === "saved" ? "page" : undefined}
-          aria-pressed={bottomView === "saved"}
-        >
-          <span aria-hidden="true">▤</span>
-          <span>保存リスト</span>
-        </button>
-        <button
-          type="button"
-          className={`bottom-nav-item${bottomView === "guide" ? " bottom-nav-item--active" : ""}`}
-          onClick={() => setBottomView("guide")}
-          aria-current={bottomView === "guide" ? "page" : undefined}
-          aria-pressed={bottomView === "guide"}
-        >
-          <span aria-hidden="true">?</span>
-          <span>使い方</span>
-        </button>
-      </footer>
+          {bottomView === "guide" && <GuideScreen />}
+        </main>
+        <footer className="bottom-nav" aria-label="補助ナビゲーション">
+          <button
+            type="button"
+            className={`bottom-nav-item${bottomView === "home" ? " bottom-nav-item--active" : ""}`}
+            onClick={() => setBottomView("home")}
+            aria-current={bottomView === "home" ? "page" : undefined}
+            aria-pressed={bottomView === "home"}
+          >
+            <span aria-hidden="true">⌂</span>
+            <span>ホーム</span>
+          </button>
+          <button
+            type="button"
+            className={`bottom-nav-item${bottomView === "saved" ? " bottom-nav-item--active" : ""}`}
+            onClick={() => setBottomView("saved")}
+            aria-current={bottomView === "saved" ? "page" : undefined}
+            aria-pressed={bottomView === "saved"}
+          >
+            <span aria-hidden="true">▤</span>
+            <span>保存リスト</span>
+          </button>
+          <button
+            type="button"
+            className={`bottom-nav-item${bottomView === "guide" ? " bottom-nav-item--active" : ""}`}
+            onClick={() => setBottomView("guide")}
+            aria-current={bottomView === "guide" ? "page" : undefined}
+            aria-pressed={bottomView === "guide"}
+          >
+            <span aria-hidden="true">?</span>
+            <span>使い方</span>
+          </button>
+        </footer>
+      </div>
     </div>
   );
 }
@@ -2330,7 +2423,7 @@ function GuideScreen() {
             実際の対戦では、相手の型やプレイングによって結果が変わります。
           </li>
           <li>あくまで選出を考えるための補助として使ってください。</li>
-          <li>データはこのブラウザのlocalStorageに保存されます。</li>
+          <li>データはこのブラウザに保存されます。</li>
           <li>端末やブラウザを変えると、保存データは引き継がれません。</li>
         </ul>
       </article>
@@ -2612,15 +2705,15 @@ function RegisterScreen({
             </div>
           )}
           {pokeApiStatus === "loading" && (
-            <div className="pokeapi-card-message">
-              ポケモン情報を読み込み中...
-            </div>
+            <div className="pokeapi-card-message">詳しい情報を取得中...</div>
           )}
           {pokeApiStatus === "success" && pokeApiData && (
             <div className="pokeapi-summary-with-image">
               <PokemonPortrait
                 name={pokeApiData.japaneseName || form.name}
-                imageUrl={pokeApiData.imageUrl ?? pokeApiData.officialArtworkUrl}
+                imageUrl={
+                  pokeApiData.imageUrl ?? pokeApiData.officialArtworkUrl
+                }
                 size="hero"
               />
               <PokemonApiDataSummary data={pokeApiData} />
