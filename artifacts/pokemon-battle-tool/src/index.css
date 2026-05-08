@@ -654,6 +654,14 @@ textarea.field-input {
   white-space: normal;
   overflow-wrap: anywhere;
 }
+.result-detail-lines {
+  display: grid;
+  gap: 4px;
+  color: var(--color-ink);
+  font-size: 0.86rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
 button.result-tag {
   min-height: 40px;
 }
@@ -1516,8 +1524,7 @@ button.result-tag {
   clip-path: inset(7% round 999px);
   mix-blend-mode: multiply;
   filter: drop-shadow(5px 5px 0 var(--color-border-strong))
-    drop-shadow(0 0 18px rgba(249, 115, 22, 0.76)) contrast(1.08)
-    saturate(1.12);
+    drop-shadow(0 0 18px rgba(249, 115, 22, 0.76)) contrast(1.08) saturate(1.12);
   animation: battleVsPulse 3.6s ease-in-out infinite;
   z-index: 4;
   -webkit-user-drag: none;
@@ -1689,8 +1696,7 @@ button.result-tag {
   }
   .battle-header-pokemon--right .battle-header-sprite {
     object-position: center bottom;
-    transform: translate3d(clamp(3px, 2vw, 9px), 3px, 0) scale(1.08)
-      scaleX(-1);
+    transform: translate3d(clamp(3px, 2vw, 9px), 3px, 0) scale(1.08) scaleX(-1);
   }
   .battle-header-platform {
     width: 92%;

@@ -34,19 +34,31 @@ export async function loadMetaData(): Promise<MetaData | null> {
     const response = await fetch(metaUrl, { cache: "no-cache" });
     if (!response.ok) return null;
     const data = await response.json();
-    if (!data || typeof data !== "object" || !data.pokemon || !data.teamPatterns) return null;
+    if (
+      !data ||
+      typeof data !== "object" ||
+      !data.pokemon ||
+      !Array.isArray(data.teamPatterns)
+    )
+      return null;
+    if (Object.keys(data.pokemon).length === 0) return null;
     return data as MetaData;
   } catch {
     return null;
   }
 }
 
-export function findMetaPokemon(metaData: MetaData | null, pokemonName: string): MetaPokemonEntry | null {
+export function findMetaPokemon(
+  metaData: MetaData | null,
+  pokemonName: string,
+): MetaPokemonEntry | null {
   if (!metaData) return null;
   const exact = metaData.pokemon[pokemonName.trim()];
   if (exact) return exact;
 
   const wanted = normalizeName(pokemonName);
-  const matchedKey = Object.keys(metaData.pokemon).find((name) => normalizeName(name) === wanted);
+  const matchedKey = Object.keys(metaData.pokemon).find(
+    (name) => normalizeName(name) === wanted,
+  );
   return matchedKey ? metaData.pokemon[matchedKey] : null;
 }
