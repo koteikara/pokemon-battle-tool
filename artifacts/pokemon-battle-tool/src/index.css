@@ -1297,13 +1297,13 @@ button.result-tag {
 .battle-header {
   position: relative;
   isolation: isolate;
-  min-height: clamp(366px, 48vw, 500px);
+  min-height: clamp(430px, 53vw, 580px);
   margin: 0;
   padding: clamp(12px, 2.4vw, 20px);
   display: grid;
   /* Keep the battle header independent from the legacy two-column site header. */
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: auto minmax(246px, 1fr);
+  grid-template-rows: auto minmax(270px, 1fr);
   align-items: stretch;
   justify-items: stretch;
   gap: clamp(6px, 1.5vw, 12px);
@@ -1360,12 +1360,12 @@ button.result-tag {
 .battle-header-copy {
   grid-column: 1;
   grid-row: 1;
-  width: min(100%, 740px);
+  width: min(100%, 780px);
   justify-self: center;
   display: grid;
   justify-items: center;
-  gap: 4px;
-  padding: clamp(8px, 1.8vw, 12px) clamp(10px, 3vw, 22px);
+  gap: 6px;
+  padding: clamp(10px, 2vw, 16px) clamp(10px, 3vw, 24px);
   border: 3px solid rgba(17, 24, 39, 0.9);
   border-radius: 18px;
   background: linear-gradient(
@@ -1378,8 +1378,8 @@ button.result-tag {
 }
 .battle-header-title-image {
   display: block;
-  width: min(100%, 540px);
-  max-height: clamp(66px, 15vw, 114px);
+  width: min(92%, 560px);
+  max-height: clamp(96px, 18vw, 162px);
   object-fit: contain;
   background: transparent;
   mix-blend-mode: normal;
@@ -1505,12 +1505,12 @@ button.result-tag {
 }
 .battle-vs-badge {
   display: block;
-  width: clamp(58px, 9.2vw, 92px);
-  max-width: 16vw;
+  width: clamp(86px, 13.8vw, 138px);
+  max-width: 20vw;
   height: auto;
   align-self: center;
   justify-self: center;
-  margin-bottom: clamp(48px, 6.2vw, 76px);
+  margin-bottom: clamp(58px, 7.6vw, 92px);
   background: transparent;
   object-fit: contain;
   clip-path: inset(7% round 999px);
@@ -1630,8 +1630,8 @@ button.result-tag {
     margin-bottom: 16px;
   }
   .battle-header {
-    min-height: 340px;
-    grid-template-rows: auto minmax(204px, 1fr);
+    min-height: 410px;
+    grid-template-rows: auto minmax(218px, 1fr);
     gap: 6px;
     padding: 10px;
     border-width: 3px;
@@ -1647,8 +1647,8 @@ button.result-tag {
     box-shadow: 3px 3px 0 var(--color-border-strong);
   }
   .battle-header-title-image {
-    width: min(100%, 320px);
-    max-height: clamp(56px, 18vw, 74px);
+    width: min(92%, 420px);
+    max-height: clamp(104px, 28vw, 138px);
   }
   .battle-header-copy p {
     font-size: clamp(0.76rem, 3.35vw, 0.88rem);
@@ -1699,9 +1699,9 @@ button.result-tag {
     border-width: 2px;
   }
   .battle-vs-badge {
-    width: clamp(46px, 12vw, 58px);
-    max-width: 15vw;
-    margin-bottom: 48px;
+    width: clamp(66px, 18vw, 86px);
+    max-width: 20vw;
+    margin-bottom: 56px;
     clip-path: inset(8% round 999px);
     filter: drop-shadow(3px 3px 0 var(--color-border-strong))
       drop-shadow(0 0 14px rgba(249, 115, 22, 0.68)) contrast(1.08)
@@ -1729,13 +1729,18 @@ button.result-tag {
     box-shadow: 2px 2px 0 var(--color-border-strong);
   }
 }
+@media (max-width: 420px) {
+  .battle-header-title-image {
+    max-height: 132px;
+  }
+}
 @media (max-width: 380px) {
   .battle-header {
-    min-height: 314px;
-    grid-template-rows: auto minmax(178px, 1fr);
+    min-height: 372px;
+    grid-template-rows: auto minmax(188px, 1fr);
   }
   .battle-header-title-image {
-    max-height: 62px;
+    max-height: 118px;
   }
   .battle-header-copy p {
     font-size: 0.74rem;
@@ -1751,9 +1756,9 @@ button.result-tag {
     height: 100%;
   }
   .battle-vs-badge {
-    width: 42px;
-    max-width: 14vw;
-    margin-bottom: 44px;
+    width: 60px;
+    max-width: 18vw;
+    margin-bottom: 48px;
   }
   .battle-header-shuffle-panel {
     gap: 6px;
