@@ -417,6 +417,119 @@ function getAbilitySuggestions(input: string): string[] {
   return getOptionSuggestions(input, ABILITY_LIST, 20).slice(0, 50);
 }
 
+interface SearchableSelectProps {
+  label: string;
+  value: string;
+  onChange: (val: string) => void;
+  options: readonly string[];
+  placeholder?: string;
+  testId?: string;
+  emptyLimit?: number;
+  children?: React.ReactNode;
+}
+
+function SearchableSelect({
+  label,
+  value,
+  onChange,
+  options,
+  placeholder = "未設定",
+  testId,
+  emptyLimit = 20,
+  children,
+}: SearchableSelectProps) {
+  const [open, setOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const suggestions = getOptionSuggestions(value, options, emptyLimit).slice(0, 50);
+  const listId = `${testId ?? label}-suggestions`;
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  useEffect(() => setActiveIndex(0), [value, options]);
+
+  function pick(option: string) {
+    onChange(option);
+    setOpen(false);
+  }
+
+  return (
+    <div className="field searchable-select-field">
+      <label className="field-label">{label}</label>
+      <div className="searchable-select-wrap" ref={wrapRef}>
+        <input
+          className="field-input searchable-select-input"
+          placeholder={placeholder}
+          value={value}
+          data-testid={testId}
+          autoComplete="off"
+          role="combobox"
+          aria-expanded={open}
+          aria-controls={listId}
+          aria-autocomplete="list"
+          onChange={(e) => {
+            onChange(e.target.value);
+            setOpen(true);
+          }}
+          onFocus={() => setOpen(true)}
+          onKeyDown={(e) => {
+            if (!open || suggestions.length === 0) return;
+            if (e.key === "ArrowDown") {
+              e.preventDefault();
+              setActiveIndex((i) => Math.min(i + 1, suggestions.length - 1));
+            }
+            if (e.key === "ArrowUp") {
+              e.preventDefault();
+              setActiveIndex((i) => Math.max(i - 1, 0));
+            }
+            if (e.key === "Enter") {
+              e.preventDefault();
+              pick(suggestions[activeIndex]);
+            }
+            if (e.key === "Escape") setOpen(false);
+          }}
+        />
+        {open && (
+          <div className="suggestions-list searchable-select-list" id={listId} role="listbox">
+            {suggestions.length > 0 ? (
+              suggestions.map((option, idx) => (
+                <button
+                  key={option}
+                  type="button"
+                  className={`suggestion-item searchable-select-option${idx === activeIndex ? " suggestion-item--active" : ""}`}
+                  role="option"
+                  aria-selected={option === value}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    pick(option);
+                  }}
+                  onClick={() => pick(option)}
+                  data-testid={`suggestion-${testId ?? label}-${option}`}
+                >
+                  {option}
+                </button>
+              ))
+            ) : (
+              <div className="suggestion-item searchable-select-empty">
+                候補がありません
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+      {children}
+    </div>
+  );
+}
+
 interface AbilityInputProps {
   value: string;
   onChange: (val: string) => void;
@@ -2570,37 +2683,33 @@ function RegisterScreen({
           <MoveTeamChecks checks={moveTeamChecks} />
         </div>
 
-        <div className="field">
-          <label className="field-label">性格</label>
-          <select
-            className="field-select"
-            value={form.nature}
-            onChange={f("nature")}
-            data-testid="select-nature"
-          >
-            <option value="">性格を選択</option>
-            {NATURES.map((n) => (
-              <option key={n} value={n}>
-                {n}
-              </option>
-            ))}
-          </select>
-        </div>
+        <SearchableSelect
+          label="性格"
+          value={form.nature}
+          onChange={(val) => setForm({ ...form, nature: val })}
+          options={NATURES}
+          placeholder="未設定"
+          testId="select-nature"
+        />
 
-        <div className="field">
-          <label className="field-label">持ち物</label>
-          <ItemPicker
-            value={form.item}
-            onChange={(val) => setForm({ ...form, item: val })}
-          />
-        </div>
-        <div className="field">
-          <label className="field-label">特性</label>
-          <AbilityInput
-            value={form.ability}
-            onChange={(val) => setForm({ ...form, ability: val })}
-            testId="input-ability"
-          />
+        <SearchableSelect
+          label="持ち物"
+          value={form.item}
+          onChange={(val) => setForm({ ...form, item: val })}
+          options={ITEMS}
+          placeholder="未設定"
+          testId="input-item"
+          emptyLimit={30}
+        />
+
+        <SearchableSelect
+          label="特性"
+          value={form.ability}
+          onChange={(val) => setForm({ ...form, ability: val })}
+          options={ABILITY_LIST}
+          placeholder="未設定"
+          testId="input-ability"
+        >
           {pokeApiStatus === "success" &&
             pokeApiData &&
             pokeApiData.abilities.length > 0 && (
@@ -2634,22 +2743,16 @@ function RegisterScreen({
                 </div>
               </div>
             )}
-        </div>
-        <div className="field">
-          <label className="field-label">テラスタイプ</label>
-          <select
-            className="field-select"
-            value={form.teraType}
-            onChange={f("teraType")}
-          >
-            <option value="">選択してください</option>
-            {TERA_TYPES.map((t) => (
-              <option key={t} value={t}>
-                {t}
-              </option>
-            ))}
-          </select>
-        </div>
+        </SearchableSelect>
+
+        <SearchableSelect
+          label="テラスタイプ"
+          value={form.teraType}
+          onChange={(val) => setForm({ ...form, teraType: val })}
+          options={TERA_TYPES}
+          placeholder="未設定"
+          testId="input-tera-type"
+        />
         <div className="field">
           <label className="field-label">役割タグ（複数選択）</label>
           <div className="result-tags">
