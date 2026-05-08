@@ -1,5 +1,12 @@
 import { useState, useEffect, useRef, type CSSProperties } from "react";
 import { MOVES } from "./lib/moves";
+import {
+  findMetaPokemon,
+  loadMetaData,
+  type MetaData,
+  type MetaPokemonEntry,
+  type MetaUsageEntry,
+} from "./lib/metaData";
 import { ABILITY_LIST } from "./lib/abilities";
 import {
   fetchPokemonApiData,
@@ -1180,6 +1187,11 @@ type OppPrediction = {
   reason: string;
   role: string;
   caution: string;
+  predictedBuildType: string;
+  itemCandidates: MetaUsageEntry[];
+  teraCandidates: MetaUsageEntry[];
+  metaEntry: MetaPokemonEntry | null;
+  scoreBreakdown: ScoreBreakdown[];
 };
 
 type PokemonMeta = { roles: string[]; note: string; caution: string };
@@ -1297,7 +1309,173 @@ function getPokemonMeta(name: string): PokemonMeta {
   return key ? POKEMON_META[key] : DEFAULT_POKEMON_META;
 }
 
-function predictOpponent(slots: string[]): OppPrediction[] {
+function clampMetaScore(value: number) {
+  return Math.max(1, Math.min(5, value));
+}
+
+function formatMetaUsage(entry: MetaUsageEntry) {
+  if (typeof entry.rate === "number" && Number.isFinite(entry.rate)) {
+    return `${entry.name} ${Math.round(entry.rate)}%`;
+  }
+  if (typeof entry.count === "number" && Number.isFinite(entry.count)) {
+    return `${entry.name} ${entry.count}件`;
+  }
+  return entry.name;
+}
+
+function formatMetaUsageList(entries: MetaUsageEntry[], emptyLabel: string) {
+  const labels = entries.slice(0, 3).map(formatMetaUsage);
+  return labels.length > 0 ? labels.join("、") : emptyLabel;
+}
+
+function inferOpponentBuildType(items: MetaUsageEntry[], role: string) {
+  const topItem = items[0]?.name?.trim();
+  if (!topItem) return "型候補なし";
+
+  const itemBuildNames: Record<string, string> = {
+    きあいのタスキ: "きあいのタスキ型",
+    こだわりスカーフ: "こだわりスカーフ型",
+    こだわりハチマキ: "こだわりハチマキ型",
+    こだわりメガネ: "こだわりメガネ型",
+    いのちのたま: "いのちのたま型",
+    とつげきチョッキ: "とつげきチョッキ型",
+    たべのこし: "たべのこし耐久型",
+    ゴツゴツメット: "ゴツゴツメット耐久型",
+    オボンのみ: "オボンのみ型",
+    じゃくてんほけん: "じゃくてんほけん型",
+  };
+
+  if (itemBuildNames[topItem]) return itemBuildNames[topItem];
+  if (topItem.endsWith("ナイト")) return "メガストーン型";
+  if (topItem.endsWith("Z") || topItem.endsWith("Ｚ")) return "Zワザ型";
+  if (hasAnyText(role, ["受け", "耐久"])) return "耐久型";
+  if (hasAnyText(role, ["起点作成", "サポート"])) return "サポート型";
+  return "アタッカー型";
+}
+
+function buildMetaReason(
+  parts: ScoreBreakdown[],
+  partnerMatches: MetaUsageEntry[],
+  hasMatchingPattern: boolean,
+) {
+  const reasons: string[] = [];
+  if (parts.some((part) => part.label === "採用傾向")) {
+    reasons.push("上位構築で採用が多いです");
+  }
+  if (partnerMatches.length > 0) {
+    reasons.push(
+      `${partnerMatches
+        .slice(0, 2)
+        .map((partner) => partner.name)
+        .join("・")}と同時採用されやすいです`,
+    );
+  }
+  if (hasMatchingPattern) reasons.push("似た並びが公開データにあります");
+  return reasons.length > 0
+    ? `${reasons.join("。")}。`
+    : "公開データ上の根拠は少なめです。";
+}
+
+function buildMetaScoreParts(
+  name: string,
+  slots: string[],
+  metaData: MetaData | null,
+): {
+  metaEntry: MetaPokemonEntry | null;
+  scoreParts: ScoreBreakdown[];
+  itemCandidates: MetaUsageEntry[];
+  teraCandidates: MetaUsageEntry[];
+  reason: string;
+} {
+  const metaEntry = findMetaPokemon(metaData, name);
+  const opponentNames = slots
+    .map((slot) => normalize(slot.trim()))
+    .filter(Boolean);
+  const targetName = normalize(name);
+  const maxUsage = Math.max(
+    1,
+    ...slots.map((slot) => findMetaPokemon(metaData, slot)?.usageCount ?? 0),
+  );
+  const scoreParts: ScoreBreakdown[] = [];
+
+  if (metaEntry?.usageCount) {
+    scoreParts.push({
+      label: "採用傾向",
+      points: clampMetaScore(Math.ceil((metaEntry.usageCount / maxUsage) * 5)),
+    });
+  }
+
+  const partnerMatches =
+    metaEntry?.partners?.filter((partner) => {
+      const partnerName = normalize(partner.name);
+      return partnerName !== targetName && opponentNames.includes(partnerName);
+    }) ?? [];
+  if (partnerMatches.length > 0) {
+    const partnerRate = partnerMatches.reduce(
+      (sum, partner) => sum + (partner.rate || 0),
+      0,
+    );
+    scoreParts.push({
+      label: "同時採用",
+      points: clampMetaScore(
+        Math.ceil(partnerRate / 20) + Math.min(2, partnerMatches.length - 1),
+      ),
+    });
+  }
+
+  const matchingPattern = (metaData?.teamPatterns ?? [])
+    .map((pattern) => ({
+      pattern,
+      overlap: pattern.members.filter((member) =>
+        opponentNames.includes(normalize(member)),
+      ).length,
+      includesTarget: pattern.members.some(
+        (member) => normalize(member) === targetName,
+      ),
+    }))
+    .filter((entry) => entry.includesTarget && entry.overlap >= 3)
+    .sort(
+      (a, b) =>
+        b.overlap - a.overlap ||
+        (a.pattern.rank || 999999) - (b.pattern.rank || 999999),
+    )[0];
+  if (matchingPattern) {
+    const rankBonus =
+      matchingPattern.pattern.rank > 0 && matchingPattern.pattern.rank <= 200
+        ? 1
+        : 0;
+    scoreParts.push({
+      label: "構築一致",
+      points: clampMetaScore(matchingPattern.overlap - 1 + rankBonus),
+    });
+  }
+
+  const itemCandidates = metaEntry?.items?.slice(0, 3) ?? [];
+  const teraCandidates = metaEntry?.teraTypes?.slice(0, 3) ?? [];
+  if (itemCandidates.length > 0) {
+    scoreParts.push({ label: "持ち物傾向", points: 1 });
+  }
+  if (teraCandidates.length > 0) {
+    scoreParts.push({ label: "テラ傾向", points: 1 });
+  }
+
+  return {
+    metaEntry,
+    scoreParts,
+    itemCandidates,
+    teraCandidates,
+    reason: buildMetaReason(
+      scoreParts,
+      partnerMatches,
+      Boolean(matchingPattern),
+    ),
+  };
+}
+
+function predictOpponent(
+  slots: string[],
+  metaData: MetaData | null,
+): OppPrediction[] {
   const uniqueValid = slots
     .map((s) => s.trim())
     .filter((s) => s && isAllowed(s))
@@ -1327,14 +1505,21 @@ function predictOpponent(slots: string[]): OppPrediction[] {
 
   const scored = metas.map(({ name, meta }) => {
     let score = 50;
-    if (meta.roles.includes("高速アタッカー")) score += 20;
-    if (meta.roles.includes("物理アタッカー")) score += 15;
-    if (meta.roles.includes("特殊アタッカー")) score += 15;
-    if (meta.roles.includes("受け")) score += 15;
-    if (meta.roles.includes("起点作成")) score += 10;
-    if (meta.roles.includes("詰め性能")) score += 15;
-    if (meta.roles.includes("対面性能")) score += 15;
-    if (HIGH_PICK_PRESSURE_POKEMON.has(normalize(name))) score += 15;
+    const scoreBreakdown: ScoreBreakdown[] = [];
+    const addScore = (label: string, points: number) => {
+      score += points;
+      scoreBreakdown.push({ label, points });
+    };
+
+    if (meta.roles.includes("高速アタッカー")) addScore("高速", 20);
+    if (meta.roles.includes("物理アタッカー")) addScore("物理火力", 15);
+    if (meta.roles.includes("特殊アタッカー")) addScore("特殊火力", 15);
+    if (meta.roles.includes("受け")) addScore("耐久", 15);
+    if (meta.roles.includes("起点作成")) addScore("先発補助", 10);
+    if (meta.roles.includes("詰め性能")) addScore("詰め", 15);
+    if (meta.roles.includes("対面性能")) addScore("対面", 15);
+    if (HIGH_PICK_PRESSURE_POKEMON.has(normalize(name)))
+      addScore("基本傾向", 15);
 
     if (
       hasPhysical &&
@@ -1342,15 +1527,16 @@ function predictOpponent(slots: string[]): OppPrediction[] {
       (meta.roles.includes("物理アタッカー") ||
         meta.roles.includes("特殊アタッカー"))
     )
-      score += 5;
+      addScore("攻撃バランス", 5);
     if (
       hasDefensive &&
       (meta.roles.includes("物理アタッカー") ||
         meta.roles.includes("特殊アタッカー") ||
         meta.roles.includes("高速アタッカー"))
     )
-      score += 5;
-    if (hasSetter && meta.roles.includes("積みアタッカー")) score += 10;
+      addScore("サイクル補完", 5);
+    if (hasSetter && meta.roles.includes("積みアタッカー"))
+      addScore("展開相性", 10);
     if (
       hasWeather &&
       hasWeatherAbuser &&
@@ -1359,14 +1545,27 @@ function predictOpponent(slots: string[]): OppPrediction[] {
         meta.roles.includes("特殊アタッカー") ||
         meta.roles.includes("物理アタッカー"))
     )
-      score += 10;
+      addScore("天候相性", 10);
+
+    const metaScore = buildMetaScoreParts(name, uniqueValid, metaData);
+    score += metaScore.scoreParts.reduce((sum, part) => sum + part.points, 0);
+    scoreBreakdown.push(...metaScore.scoreParts);
+    const role = meta.roles.join(" / ");
 
     return {
       name,
       score,
-      reason: meta.note,
-      role: meta.roles.join(" / "),
+      reason: metaScore.metaEntry ? metaScore.reason : meta.note,
+      role,
       caution: meta.caution,
+      predictedBuildType: inferOpponentBuildType(
+        metaScore.itemCandidates,
+        role,
+      ),
+      itemCandidates: metaScore.itemCandidates,
+      teraCandidates: metaScore.teraCandidates,
+      metaEntry: metaScore.metaEntry,
+      scoreBreakdown,
     };
   });
 
@@ -1703,6 +1902,52 @@ function scorePlayerPokemon(
   });
   if (selfCloser && defensiveOppCount <= 1 && predictedOpponents.length > 0)
     breakdown.push({ label: "詰め性能が通りやすい", points: 6 });
+
+  const hasSashThreat = predictedOpponents.some(
+    (opp) => opp.predictedBuildType === "きあいのタスキ型",
+  );
+  if (
+    hasSashThreat &&
+    hasAnyText(moveText, [
+      "先制",
+      "しんそく",
+      "ふいうち",
+      "かげうち",
+      "アクアジェット",
+      "つららばり",
+      "タネマシンガン",
+      "連続",
+    ])
+  ) {
+    breakdown.push({ label: "タスキ型への軽い対応", points: 3 });
+  }
+
+  const hasScarfThreat = predictedOpponents.some(
+    (opp) => opp.predictedBuildType === "こだわりスカーフ型",
+  );
+  if (hasScarfThreat && selfDefensive) {
+    breakdown.push({ label: "スカーフ型への軽い対応", points: 3 });
+  }
+
+  const hasDurableThreat = predictedOpponents.some((opp) =>
+    ["たべのこし耐久型", "ゴツゴツメット耐久型"].includes(
+      opp.predictedBuildType,
+    ),
+  );
+  if (
+    hasDurableThreat &&
+    (selfAttacker ||
+      hasAnyText(moveText, [
+        "つるぎのまい",
+        "わるだくみ",
+        "りゅうのまい",
+        "めいそう",
+        "ビルドアップ",
+        "積み",
+      ]))
+  ) {
+    breakdown.push({ label: "耐久型への軽い対応", points: 3 });
+  }
 
   const movePatterns: Array<{
     patterns: string[];
@@ -3266,9 +3511,20 @@ function BattleScreen({
   setOpponent: (o: string[]) => void;
   myTeam: MyPokemon[];
 }) {
-  const predictions = predictOpponent(opponent);
+  const [publicMetaData, setPublicMetaData] = useState<MetaData | null>(null);
+  const predictions = predictOpponent(opponent, publicMetaData);
   const [, setPokeApiCacheVersion] = useState(0);
   const validCount = opponent.filter((s) => s.trim() && isAllowed(s)).length;
+
+  useEffect(() => {
+    let active = true;
+    loadMetaData().then((data) => {
+      if (active) setPublicMetaData(data);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -3357,7 +3613,7 @@ function BattleScreen({
       <div className="card">
         <div className="result-section-title">相手の選出予測</div>
         <div className="result-meta-note">
-          入力された相手パーティから、選出されやすい3匹を予測します。
+          入力された相手パーティから、公開データ上の傾向も参考に選出されやすい3匹を予測します。
         </div>
         {validCount === 0 ? (
           <div className="result-empty">
@@ -3387,10 +3643,34 @@ function BattleScreen({
                 />
                 <div className="result-info">
                   <div className="result-name">{p.name}</div>
-                  <div className="result-reason">{p.reason}</div>
+                  <div className="result-reason">採用根拠：{p.reason}</div>
+                  <div className="result-detail-lines">
+                    <div>予想型：{p.predictedBuildType}</div>
+                    <div>
+                      持ち物候補：
+                      {formatMetaUsageList(
+                        p.itemCandidates,
+                        p.metaEntry ? "持ち物データなし" : "公開データなし",
+                      )}
+                    </div>
+                    <div>
+                      テラ候補：
+                      {formatMetaUsageList(
+                        p.teraCandidates,
+                        p.metaEntry ? "テラデータなし" : "公開データなし",
+                      )}
+                    </div>
+                  </div>
                   <div className="result-tags">
                     <span className="result-tag">役割: {p.role}</span>
-                    <span className="result-tag">注意: {p.caution}</span>
+                    {p.scoreBreakdown.slice(0, 5).map((part) => (
+                      <span
+                        className="result-tag"
+                        key={`${p.name}-${part.label}`}
+                      >
+                        {part.label}+{part.points}
+                      </span>
+                    ))}
                   </div>
                 </div>
                 <div className="result-score">
