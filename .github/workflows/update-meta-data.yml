@@ -31,23 +31,18 @@ jobs:
 
       - name: Fetch and build meta.json
         id: update_meta
-        continue-on-error: true
         run: node scripts/update-meta-data.mjs
         env:
           POKEDB_PUBLIC_JSON_URLS: ${{ github.event.inputs.source_urls || vars.POKEDB_PUBLIC_JSON_URLS }}
-          META_OUTPUT_PATH: artifacts/pokemon-battle-tool/public/data/meta.json
-
-      - name: Keep current data on fetch failure
-        if: steps.update_meta.outcome == 'failure'
-        run: echo "PokeDB fetch failed, so the existing public/data/meta.json was left unchanged."
 
       - name: Commit updated meta.json
-        if: steps.update_meta.outcome == 'success'
         run: |
           if git diff --quiet -- artifacts/pokemon-battle-tool/public/data/meta.json && [ -z "$(git status --porcelain -- artifacts/pokemon-battle-tool/public/data/meta.json)" ]; then
+            node -e "console.log('git diff present: false')"
             echo "No meta data changes."
             exit 0
           fi
+          node -e "console.log('git diff present: true')"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add artifacts/pokemon-battle-tool/public/data/meta.json

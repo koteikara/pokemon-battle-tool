@@ -21,6 +21,7 @@ export interface MetaData {
   updatedAt: string;
   source: "pokedb" | string;
   sourceUrl?: string;
+  error?: string;
   pokemon: Record<string, MetaPokemonEntry>;
   teamPatterns: MetaTeamPattern[];
 }
@@ -29,8 +30,8 @@ const normalizeName = (name: string) => name.trim().replace(/\s+/g, "");
 
 export async function loadMetaData(): Promise<MetaData | null> {
   try {
-    const baseUrl = import.meta.env.BASE_URL || "/";
-    const response = await fetch(`${baseUrl}data/meta.json`, { cache: "no-cache" });
+    const metaUrl = `${import.meta.env.BASE_URL}data/meta.json`;
+    const response = await fetch(metaUrl, { cache: "no-cache" });
     if (!response.ok) return null;
     const data = await response.json();
     if (!data || typeof data !== "object" || !data.pokemon || !data.teamPatterns) return null;
