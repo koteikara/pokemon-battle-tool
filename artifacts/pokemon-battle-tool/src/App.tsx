@@ -2013,7 +2013,7 @@ function BattleHeader() {
   return (
     <div className="battle-header-section">
       <header
-        className="site-header battle-header"
+        className="battle-header"
         style={
           {
             "--battle-header-bg": `url("${HEADER_STADIUM_BG_URL}")`,
