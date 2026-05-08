@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { access, mkdir, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 
@@ -7,8 +7,7 @@ const DEFAULT_SOURCE_URLS = [
   "https://pokedb.org/data-export/all.json",
 ];
 
-const OUTPUT_PATH = process.env.META_OUTPUT_PATH
-  ?? "artifacts/pokemon-battle-tool/public/data/meta.json";
+const OUTPUT_PATH = "artifacts/pokemon-battle-tool/public/data/meta.json";
 const SOURCE_URLS = (process.env.POKEDB_PUBLIC_JSON_URLS ?? process.env.POKEDB_SOURCE_URL ?? "")
   .split(",")
   .map((url) => url.trim())
@@ -190,13 +189,39 @@ async function fetchJson(url) {
   return response.json();
 }
 
-async function readExistingMeta() {
+function createFallbackMeta() {
+  return {
+    updatedAt: new Date().toISOString(),
+    source: "pokedb",
+    pokemon: {},
+    teamPatterns: [],
+    error: "fetch failed or no source data",
+  };
+}
+
+async function writeMeta(meta) {
+  const outputDir = path.dirname(OUTPUT_PATH);
+  console.log(`Output path: ${OUTPUT_PATH}`);
+  let dataDirectoryAlreadyExisted = true;
   try {
-    const raw = await readFile(OUTPUT_PATH, "utf8");
-    return JSON.parse(raw);
+    await access(outputDir);
   } catch {
-    return null;
+    dataDirectoryAlreadyExisted = false;
   }
+  console.log(`Data directory existed before write: ${dataDirectoryAlreadyExisted}`);
+  console.log(`Ensuring data directory exists: ${outputDir}`);
+  await mkdir(outputDir, { recursive: true });
+  console.log(`Data directory is ready: ${outputDir}`);
+
+  const pokemonCount = Object.keys(meta.pokemon ?? {}).length;
+  const teamPatternsCount = asArray(meta.teamPatterns).length;
+  console.log(`Pokemon count: ${pokemonCount}`);
+  console.log(`Team patterns count: ${teamPatternsCount}`);
+
+  const tempPath = `${OUTPUT_PATH}.tmp`;
+  await writeFile(tempPath, `${JSON.stringify(meta)}\n`, "utf8");
+  await rename(tempPath, OUTPUT_PATH);
+  console.log(`meta.json written: ${OUTPUT_PATH}`);
 }
 
 async function main() {
@@ -212,11 +237,7 @@ async function main() {
         throw new Error("Fetched JSON did not contain usable usage data.");
       }
 
-      await mkdir(path.dirname(OUTPUT_PATH), { recursive: true });
-      const tempPath = `${OUTPUT_PATH}.tmp`;
-      await writeFile(tempPath, `${JSON.stringify(meta)}\n`, "utf8");
-      await rename(tempPath, OUTPUT_PATH);
-      console.log(`Wrote ${OUTPUT_PATH}`);
+      await writeMeta(meta);
       return;
     } catch (error) {
       lastError = error;
@@ -224,11 +245,8 @@ async function main() {
     }
   }
 
-  const existing = await readExistingMeta();
-  if (existing) {
-    console.warn(`Keeping existing ${OUTPUT_PATH}; no source could be fetched.`);
-  }
-  throw lastError ?? new Error("No PokeDB source URL was configured.");
+  console.warn("No PokeDB source could be fetched; writing fallback meta.json.");
+  await writeMeta(createFallbackMeta());
 }
 
 main().catch((error) => {
