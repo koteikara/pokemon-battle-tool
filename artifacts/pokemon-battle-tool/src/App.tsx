@@ -1580,12 +1580,162 @@ type MyRecommendation = {
   pokemon: MyPokemon;
   score: number;
   reason: string;
+  advantagedOpponents: string[];
+  strengths: string[];
+  caution: string;
   breakdown: ScoreBreakdown[];
 };
 
 function hasAnyText(source: string, patterns: string[]): boolean {
   const text = source.toLowerCase();
   return patterns.some((pattern) => text.includes(pattern));
+}
+
+
+function hasPositiveBreakdown(
+  breakdown: ScoreBreakdown[],
+  patterns: string[],
+): boolean {
+  return breakdown.some(
+    (part) =>
+      part.points > 0 && patterns.some((pattern) => part.label.includes(pattern)),
+  );
+}
+
+function uniqueLimited(values: string[], limit: number): string[] {
+  return Array.from(new Set(values.filter(Boolean))).slice(0, limit);
+}
+
+function findAdvantagedOpponents(
+  player: MyPokemon,
+  predictedOpponents: OppPrediction[],
+  breakdown: ScoreBreakdown[],
+  moveDetails = getPlayerMoveDetails(player),
+): string[] {
+  const advantaged = new Set<string>();
+
+  predictedOpponents.slice(0, 3).forEach((opp, index) => {
+    const hasDirectScore = breakdown.some(
+      (part) => part.points > 0 && part.label.includes(opp.name),
+    );
+    const hasRoleScore = breakdown.some(
+      (part) =>
+        part.points > 0 &&
+        part.label.includes(`予測${index + 1}位`) &&
+        (part.label.includes("対応") || part.label.includes("受けやすい")),
+    );
+    if (hasDirectScore || hasRoleScore) advantaged.add(opp.name);
+  });
+
+  const typedOpponents = predictedOpponents
+    .slice(0, 3)
+    .map((opp) => ({ ...opp, types: getKnownPokemonTypes(opp.name) }))
+    .filter((opp) => opp.types.length > 0);
+  const typedMoves = moveDetails.filter(
+    (move): move is {
+      name: string;
+      apiData: MoveApiData | null;
+      type: PokemonType;
+    } => move.type !== null,
+  );
+
+  typedOpponents.forEach((opp) => {
+    const hasGoodHit = typedMoves.some(
+      (move) => getTypeEffectiveness(move.type, opp.types) >= 2,
+    );
+    if (hasGoodHit) advantaged.add(opp.name);
+  });
+
+  return Array.from(advantaged).slice(0, 3);
+}
+
+function buildRecommendationStrengths(
+  player: MyPokemon,
+  breakdown: ScoreBreakdown[],
+): string[] {
+  const roleText = `${player.roleTags.join(" ")} ${player.memo}`;
+  const strengths: string[] = [];
+
+  if (hasPositiveBreakdown(breakdown, ["高速", "先制技"]) || player.evS >= 24)
+    strengths.push("高速アタッカー");
+  if (hasPositiveBreakdown(breakdown, ["物理火力", "物理役"]) || player.evA >= 24)
+    strengths.push("物理火力");
+  if (hasPositiveBreakdown(breakdown, ["特殊火力", "特殊役"]) || player.evC >= 24)
+    strengths.push("特殊火力");
+  if (
+    hasPositiveBreakdown(breakdown, ["耐久", "受け"]) ||
+    player.evH >= 24 ||
+    player.evB >= 24 ||
+    player.evD >= 24
+  )
+    strengths.push("物理耐久");
+  if (hasPositiveBreakdown(breakdown, ["先発", "行動保証"]) || hasAnyText(roleText, ["先発"]))
+    strengths.push("先発向き");
+  if (hasPositiveBreakdown(breakdown, ["対策", "対応", "相手予測1位"]))
+    strengths.push("対面性能");
+  if (hasPositiveBreakdown(breakdown, ["補助", "サポート"]) || hasAnyText(roleText, ["サポート"]))
+    strengths.push("サポート");
+  if (hasPositiveBreakdown(breakdown, ["詰め"]) || hasAnyText(roleText, ["詰め"]))
+    strengths.push("詰め要員");
+  if (hasPositiveBreakdown(breakdown, ["耐久", "継戦能力", "受けやすい"]))
+    strengths.push("クッション");
+  if (hasPositiveBreakdown(breakdown, ["抜群", "等倍以上", "打点"]))
+    strengths.push("タイプ有利");
+  if (player.pickPriority === "高") strengths.push("採用傾向あり");
+  player.roleTags.forEach((tag) => strengths.push(tag));
+
+  return uniqueLimited(strengths, 6);
+}
+
+function buildRecommendationReason(
+  breakdown: ScoreBreakdown[],
+  advantagedOpponents: string[],
+): string {
+  const reasons: string[] = [];
+
+  if (hasPositiveBreakdown(breakdown, ["抜群", "等倍以上", "打点"]))
+    reasons.push("相手の予測上位に対してタイプ相性が良く、攻撃を通しやすいです。");
+  if (hasPositiveBreakdown(breakdown, ["高速", "先制技"]))
+    reasons.push("素早さや先制技で、相手より先に動きやすい点が評価されています。");
+  if (hasPositiveBreakdown(breakdown, ["火力", "攻撃役", "威力"]))
+    reasons.push("攻撃性能が高く、相手に圧力をかけやすいです。");
+  if (hasPositiveBreakdown(breakdown, ["耐久", "受けやすい", "継戦能力"]))
+    reasons.push("耐久面が安定しており、相手の攻撃を受けやすいです。");
+  if (hasPositiveBreakdown(breakdown, ["役", "適性", "補助", "詰め"]))
+    reasons.push("登録された役割タグから、この対戦で使いやすい型と判断されています。");
+  if (hasPositiveBreakdown(breakdown, ["採用傾向あり"]))
+    reasons.push("公開データ上でも採用傾向があり、実戦で使われやすい型として評価されています。");
+  if (hasPositiveBreakdown(breakdown, ["優先度 高"]))
+    reasons.push("登録情報で優先度が高く、選出候補として評価されています。");
+
+  if (reasons.length === 0 && advantagedOpponents.length > 0)
+    reasons.push("相手の予測上位3匹に対して通りが良く、安定して戦いやすいです。");
+  if (reasons.length === 0)
+    reasons.push("登録情報と相手予測をもとにおすすめしています。");
+
+  return reasons.slice(0, 2).join("");
+}
+
+function buildRecommendationCaution(breakdown: ScoreBreakdown[]): string {
+  const negative = breakdown
+    .filter((part) => part.points < 0)
+    .sort((a, b) => a.points - b.points)[0];
+
+  if (
+    negative?.label.includes("有効打不足") ||
+    negative?.label.includes("タイプ有効打不足")
+  )
+    return "相手への有効打が少ない可能性があります。技の通りを確認してください。";
+  if (negative?.label.includes("攻撃技がありません"))
+    return "攻撃技が少ないため、相手を倒し切る手段に注意してください。";
+  if (negative?.label.includes("物理攻撃技が少ない"))
+    return "物理火力を伸ばしていますが、物理技が少ない点に注意してください。";
+  if (negative?.label.includes("特殊攻撃技が少ない"))
+    return "特殊火力を伸ばしていますが、特殊技が少ない点に注意してください。";
+  if (negative?.label.includes("優先度 低"))
+    return "登録上の選出優先度は低めです。ほかの候補との相性も見てください。";
+
+  return "大きな注意点は少なめです。相手の先制技やスカーフ持ちには注意してください。";
 }
 
 function getAbilityDetailsForDisplay(
@@ -1807,6 +1957,7 @@ function scoreTypeMatchups(
 function scorePlayerPokemon(
   player: MyPokemon,
   predictedOpponents: OppPrediction[],
+  metaData: MetaData | null = null,
 ): MyRecommendation {
   const breakdown: ScoreBreakdown[] = [{ label: "基本点", points: 50 }];
 
@@ -1825,6 +1976,9 @@ function scorePlayerPokemon(
 
   const apiData = getCachedPokemonApiData(player.name);
   if (apiData) breakdown.push(...getPokemonApiRoleBonuses(apiData));
+
+  if (findMetaPokemon(metaData, player.name))
+    breakdown.push({ label: "採用傾向あり", points: 3 });
 
   if (hasAnyText(roleText, ["アタッカー"]))
     breakdown.push({ label: "攻撃役", points: 8 });
@@ -1997,25 +2151,37 @@ function scorePlayerPokemon(
   breakdown.push(...scoreTypeMatchups(player, predictedOpponents, moveDetails));
 
   const score = breakdown.reduce((sum, b) => sum + b.points, 0);
-  const topReasons = [...breakdown]
-    .sort((a, b) => b.points - a.points)
-    .slice(0, 3)
-    .map((b) => b.label);
-  const reason =
-    topReasons.length > 0
-      ? `${topReasons.join("・")}を活かして相手の予測上位3匹へ対応しやすいです`
-      : "相手の予測上位3匹に対応しやすい構成です";
+  const advantagedOpponents = findAdvantagedOpponents(
+    player,
+    predictedOpponents,
+    breakdown,
+    moveDetails,
+  );
+  const reason = buildRecommendationReason(breakdown, advantagedOpponents);
+  const strengths = buildRecommendationStrengths(player, breakdown);
+  const caution = buildRecommendationCaution(breakdown);
 
-  return { pokemon: player, score, reason, breakdown };
+  return {
+    pokemon: player,
+    score,
+    reason,
+    advantagedOpponents,
+    strengths,
+    caution,
+    breakdown,
+  };
 }
 
 function recommendPlayerSelection(
   myTeam: MyPokemon[],
   predictedOpponents: OppPrediction[],
+  metaData: MetaData | null = null,
 ): MyRecommendation[] {
   if (myTeam.length === 0 || predictedOpponents.length === 0) return [];
   return myTeam
-    .map((player) => scorePlayerPokemon(player, predictedOpponents.slice(0, 3)))
+    .map((player) =>
+      scorePlayerPokemon(player, predictedOpponents.slice(0, 3), metaData),
+    )
     .sort((a, b) => b.score - a.score)
     .slice(0, Math.min(3, myTeam.length));
 }
@@ -3557,7 +3723,11 @@ function BattleScreen({
     myTeam.map((pokemon) => pokemon.name).join("|"),
   ]);
 
-  const recommendations = recommendPlayerSelection(myTeam, predictions);
+  const recommendations = recommendPlayerSelection(
+    myTeam,
+    predictions,
+    publicMetaData,
+  );
 
   function update(i: number, val: string) {
     const next = [...opponent];
@@ -3643,38 +3813,38 @@ function BattleScreen({
                 />
                 <div className="result-info">
                   <div className="result-name">{p.name}</div>
-                  <div className="prediction-note">
-                    <div className="prediction-note-line">
-                      <span className="prediction-note-label">採用根拠</span>
-                      <span className="prediction-note-value">{p.reason}</span>
+                  <div className="reason-note">
+                    <div className="reason-note-row">
+                      <span className="reason-note-label">採用根拠</span>
+                      <span className="reason-note-value">{p.reason}</span>
                     </div>
-                    <div className="prediction-note-line">
-                      <span className="prediction-note-label">予想型</span>
-                      <span className="prediction-note-value">
+                    <div className="reason-note-row">
+                      <span className="reason-note-label">予想型</span>
+                      <span className="reason-note-value">
                         {p.predictedBuildType}
                       </span>
                     </div>
-                    <div className="prediction-note-line">
-                      <span className="prediction-note-label">持ち物候補</span>
-                      <span className="prediction-note-value">
+                    <div className="reason-note-row">
+                      <span className="reason-note-label">持ち物候補</span>
+                      <span className="reason-note-value">
                         {formatMetaUsageList(
                           p.itemCandidates,
                           p.metaEntry ? "持ち物データなし" : "公開データなし",
                         )}
                       </span>
                     </div>
-                    <div className="prediction-note-line">
-                      <span className="prediction-note-label">テラ候補</span>
-                      <span className="prediction-note-value">
+                    <div className="reason-note-row">
+                      <span className="reason-note-label">テラ候補</span>
+                      <span className="reason-note-value">
                         {formatMetaUsageList(
                           p.teraCandidates,
                           p.metaEntry ? "テラデータなし" : "公開データなし",
                         )}
                       </span>
                     </div>
-                    <div className="prediction-note-line">
-                      <span className="prediction-note-label">役割</span>
-                      <span className="prediction-note-value">{p.role}</span>
+                    <div className="reason-note-row">
+                      <span className="reason-note-label">役割</span>
+                      <span className="reason-note-value">{p.role}</span>
                     </div>
                   </div>
                   <div className="result-tags result-tags--score-breakdown">
@@ -3748,6 +3918,50 @@ function BattleScreen({
                 <div className="result-info">
                   <div className="result-name">{r.pokemon.name}</div>
                   <div className="result-reason">{r.reason}</div>
+                  <div className="reason-note" aria-label={`${r.pokemon.name}のおすすめメモ`}>
+                    <div className="reason-note-title">おすすめメモ</div>
+                    <div className="reason-note-row">
+                      <span className="reason-note-label">おすすめ根拠</span>
+                      <span className="reason-note-value">{r.reason}</span>
+                    </div>
+                    <div className="reason-note-row">
+                      <span className="reason-note-label">有利に見られる相手</span>
+                      <span className="reason-note-value">
+                        {r.advantagedOpponents.length > 0
+                          ? r.advantagedOpponents.join(" / ")
+                          : "大きく有利な相手は未判定です"}
+                      </span>
+                    </div>
+                    <div className="reason-note-row">
+                      <span className="reason-note-label">強み</span>
+                      <span className="reason-note-value reason-note-tags">
+                        {r.strengths.length > 0 ? (
+                          r.strengths.map((tag) => (
+                            <span key={tag} className="reason-note-tag">
+                              {tag}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="reason-note-tag">汎用性</span>
+                        )}
+                      </span>
+                    </div>
+                    <div className="reason-note-row">
+                      <span className="reason-note-label">注意点</span>
+                      <span className="reason-note-value">{r.caution}</span>
+                    </div>
+                    <div className="reason-note-row">
+                      <span className="reason-note-label">スコア内訳</span>
+                      <span className="reason-note-value reason-note-score">
+                        {r.breakdown
+                          .map(
+                            (b) =>
+                              `${b.label} ${b.points > 0 ? `+${b.points}` : b.points}`,
+                          )
+                          .join(" / ")}
+                      </span>
+                    </div>
+                  </div>
                   <div className="result-tags">
                     {r.pokemon.item && (
                       <span className="result-tag">
@@ -3786,13 +4000,6 @@ function BattleScreen({
                           技: {move}
                         </span>
                       ))}
-                  </div>
-                  <div className="result-tags">
-                    {r.breakdown.map((b, idx) => (
-                      <span key={`${b.label}-${idx}`} className="result-tag">
-                        {b.label} {b.points > 0 ? `+${b.points}` : b.points}
-                      </span>
-                    ))}
                   </div>
                 </div>
                 <div className="result-score">
