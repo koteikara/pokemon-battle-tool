@@ -1965,3 +1965,310 @@ button.result-tag {
     padding: 6px 8px;
   }
 }
+
+/* Compact opponent input slots */
+.opponent-team-card {
+  padding: clamp(12px, 3vw, 18px);
+}
+.opponent-input-header,
+.opponent-toolbar,
+.popular-pokemon-heading-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+}
+.opponent-input-header .card-title {
+  margin-bottom: 4px;
+}
+.opponent-save-note,
+.popular-pokemon-help,
+.speech-fallback-note {
+  color: var(--color-ink-soft);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+.opponent-count-badge,
+.popular-pokemon-source {
+  flex: 0 0 auto;
+  border: 3px solid var(--color-border-strong);
+  border-radius: var(--radius-chip);
+  background: var(--color-yellow);
+  color: var(--color-ink);
+  font-family: var(--font-mono);
+  font-weight: 900;
+  box-shadow: var(--shadow-hard-small);
+}
+.opponent-count-badge {
+  padding: 7px 12px;
+  font-size: 1rem;
+}
+.popular-pokemon-source {
+  padding: 4px 9px;
+  font-size: 0.72rem;
+  background: var(--color-screen-dim);
+}
+.opponent-toolbar {
+  margin: 12px 0;
+}
+.retro-action-button,
+.popular-more-button,
+.slot-icon-button,
+.popular-pokemon-chip {
+  border: 3px solid var(--color-border-strong);
+  color: var(--color-ink);
+  font-weight: 900;
+  box-shadow: var(--shadow-hard-small);
+  transition:
+    transform 120ms ease,
+    box-shadow 120ms ease;
+}
+.retro-action-button:active,
+.popular-more-button:active,
+.slot-icon-button:active,
+.popular-pokemon-chip:active {
+  transform: translate(2px, 2px);
+  box-shadow: none;
+}
+.retro-action-button {
+  min-height: 42px;
+  padding: 8px 10px;
+  border-radius: var(--radius-button);
+  background: var(--color-card);
+  font-size: 0.86rem;
+}
+.retro-action-button--primary {
+  flex: 1 1 auto;
+  background: var(--color-pokedex-red);
+  color: #fff;
+  border-color: var(--color-pokedex-red-dark);
+  box-shadow: var(--shadow-hard-red);
+}
+.retro-action-button:disabled,
+.slot-icon-button:disabled {
+  opacity: 0.45;
+  transform: none;
+  box-shadow: var(--shadow-hard-small);
+}
+.opponent-message {
+  margin-bottom: 10px;
+  padding: 8px 10px;
+  border: 2px solid var(--color-border-strong);
+  border-radius: var(--radius-input);
+  background: #fef3c7;
+  color: var(--color-ink);
+  font-weight: 900;
+  font-size: 0.85rem;
+  text-align: center;
+}
+.opponent-slot-list {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.opponent-team-slot {
+  display: grid;
+  grid-template-columns: 28px 48px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 7px;
+  border: 3px solid var(--color-border-strong);
+  border-radius: 14px;
+  background: var(--color-screen);
+  box-shadow: 2px 2px 0 var(--color-border-strong);
+}
+.opponent-team-slot--filled {
+  background: #fffdf2;
+}
+.opponent-slot-number {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: 2px solid var(--color-border-strong);
+  border-radius: 9px;
+  background: var(--color-yellow);
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+.pokemon-portrait--slot {
+  --portrait-size: 46px;
+  border-width: 2px;
+  border-radius: 12px;
+}
+.pokemon-portrait--chip {
+  --portrait-size: 36px;
+  border-width: 2px;
+  border-radius: 10px;
+  box-shadow: none;
+}
+.opponent-slot-main {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.opponent-slot-main .field-input {
+  min-height: 38px;
+  padding: 7px 8px;
+  border-width: 2px;
+  font-weight: 900;
+}
+.opponent-slot-main .field-ok-msg,
+.opponent-slot-main .field-error-msg {
+  display: none;
+}
+.opponent-status-badge {
+  justify-self: start;
+  max-width: 100%;
+  padding: 2px 8px;
+  border: 2px solid var(--color-border-strong);
+  border-radius: var(--radius-chip);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 900;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.opponent-status-badge--ok {
+  background: #dcfce7;
+  color: #14532d;
+}
+.opponent-status-badge--warn {
+  background: #fee2e2;
+  color: #7f1d1d;
+}
+.opponent-status-badge--info {
+  background: #dbeafe;
+  color: #1e3a8a;
+}
+.opponent-status-badge--empty {
+  background: var(--color-card);
+  color: var(--color-muted);
+}
+.opponent-slot-actions {
+  display: grid;
+  grid-template-columns: repeat(2, 32px);
+  gap: 5px;
+}
+.slot-icon-button {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: var(--color-card);
+  font-family: var(--font-mono);
+  font-size: 0.92rem;
+  line-height: 1;
+}
+.slot-icon-button--delete {
+  background: #fee2e2;
+  color: #7f1d1d;
+}
+.popular-pokemon-section {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 3px dashed var(--color-border-strong);
+}
+.popular-pokemon-title {
+  font-family: var(--font-game);
+  font-weight: 900;
+  color: var(--color-pokedex-red);
+}
+.popular-pokemon-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  min-width: 0;
+  margin-top: 10px;
+}
+.popular-pokemon-chip {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  min-height: 54px;
+  padding: 6px;
+  border-radius: 14px;
+  background: #fff;
+  text-align: left;
+}
+.popular-pokemon-chip-text {
+  display: grid;
+  min-width: 0;
+  line-height: 1.15;
+}
+.popular-pokemon-chip-text strong {
+  color: var(--color-ink);
+  font-size: 0.86rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.popular-pokemon-chip-text small {
+  margin-top: 3px;
+  color: var(--color-pokedex-red);
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  font-weight: 900;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.popular-more-button {
+  width: 100%;
+  min-height: 38px;
+  margin-top: 10px;
+  border-radius: var(--radius-button);
+  background: var(--color-screen-dim);
+}
+.speech-fallback-note {
+  margin-top: 10px;
+  text-align: center;
+}
+
+@media (max-width: 390px) {
+  .opponent-team-slot {
+    grid-template-columns: 24px 42px minmax(0, 1fr) auto;
+    gap: 6px;
+    padding: 6px;
+  }
+  .opponent-slot-number {
+    width: 24px;
+    height: 24px;
+    font-size: 0.75rem;
+  }
+  .pokemon-portrait--slot {
+    --portrait-size: 40px;
+  }
+  .opponent-slot-actions {
+    grid-template-columns: repeat(2, 29px);
+    gap: 4px;
+  }
+  .slot-icon-button {
+    width: 29px;
+    height: 29px;
+    border-width: 2px;
+    font-size: 0.82rem;
+  }
+  .opponent-slot-main .field-input {
+    min-height: 34px;
+    font-size: 15px;
+    padding: 6px;
+  }
+  .popular-pokemon-grid {
+    gap: 6px;
+  }
+  .popular-pokemon-chip {
+    grid-template-columns: 32px minmax(0, 1fr);
+    gap: 5px;
+    padding: 5px;
+  }
+  .pokemon-portrait--chip {
+    --portrait-size: 32px;
+  }
+}
