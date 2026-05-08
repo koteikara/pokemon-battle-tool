@@ -663,7 +663,7 @@ textarea.field-input {
   overflow-wrap: anywhere;
 }
 
-.prediction-note {
+.reason-note {
   position: relative;
   display: grid;
   gap: 6px;
@@ -683,7 +683,7 @@ textarea.field-input {
   box-shadow: 3px 3px 0 rgba(17, 24, 39, 0.9);
   color: var(--color-ink);
 }
-.prediction-note::before {
+.reason-note::before {
   content: "";
   position: absolute;
   top: 0;
@@ -694,7 +694,7 @@ textarea.field-input {
   background: rgba(188, 1, 0, 0.5);
   pointer-events: none;
 }
-.prediction-note-line {
+.reason-note-row {
   display: grid;
   grid-template-columns: minmax(5.5em, max-content) minmax(0, 1fr);
   column-gap: 10px;
@@ -702,21 +702,52 @@ textarea.field-input {
   min-width: 0;
   line-height: 1.65;
 }
-.prediction-note-label {
+.reason-note-label {
   color: #1f2937;
   font-weight: 900;
   letter-spacing: 0.01em;
   white-space: nowrap;
 }
-.prediction-note-label::after {
+.reason-note-label::after {
   content: "：";
 }
-.prediction-note-value {
+.reason-note-value {
   min-width: 0;
   color: #111827;
   font-weight: 700;
   overflow-wrap: anywhere;
   word-break: normal;
+}
+.reason-note-title {
+  color: #7f1d1d;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.reason-note-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.reason-note-tag {
+  display: inline-flex;
+  max-width: 100%;
+  border: 1px solid rgba(188, 1, 0, 0.45);
+  border-radius: 999px;
+  background: #fff7ed;
+  padding: 2px 8px;
+  color: #7f1d1d;
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  font-weight: 900;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.reason-note-score {
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 .result-tags--score-breakdown {
   margin-top: 10px;
@@ -1339,7 +1370,7 @@ button.result-tag {
     margin-left: 0;
     min-width: 58px;
   }
-  .prediction-note {
+  .reason-note {
     width: 100%;
     padding: 13px 12px 13px 24px;
     background-image: repeating-linear-gradient(
@@ -1350,18 +1381,18 @@ button.result-tag {
       rgba(80, 140, 220, 0.15) 30px
     );
   }
-  .prediction-note::before {
+  .reason-note::before {
     left: 15px;
   }
-  .prediction-note-line {
+  .reason-note-row {
     grid-template-columns: 1fr;
     gap: 1px;
     line-height: 1.7;
   }
-  .prediction-note-label {
+  .reason-note-label {
     font-size: 0.82rem;
   }
-  .prediction-note-value {
+  .reason-note-value {
     font-size: 0.9rem;
   }
   .result-rank-badge {
