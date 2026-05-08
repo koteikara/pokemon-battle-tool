@@ -2461,9 +2461,41 @@ function EVSection({
     (s) => (form[s.key] as number) > EV_MAX_SINGLE,
   );
 
-  function handleChange(key: keyof typeof form, raw: string) {
-    const val = raw === "" ? 0 : Math.max(0, parseInt(raw, 10) || 0);
-    setForm({ ...form, [key]: val });
+  function getSanitizedEVValue(
+    key: (typeof EV_STATS)[number]["key"],
+    rawValue: number,
+  ) {
+    const currentValue = form[key] as number;
+    const otherTotal = total - currentValue;
+    const maxByTotal = Math.max(0, EV_MAX_TOTAL - otherTotal);
+    const maxAllowed = Math.min(EV_MAX_SINGLE, maxByTotal);
+    return Math.min(Math.max(0, Math.trunc(rawValue)), maxAllowed);
+  }
+
+  function handleChange(key: (typeof EV_STATS)[number]["key"], raw: string) {
+    const parsed = raw === "" ? 0 : Number.parseInt(raw, 10);
+    const nextValue = Number.isNaN(parsed) ? 0 : parsed;
+    setForm({ ...form, [key]: getSanitizedEVValue(key, nextValue) });
+  }
+
+  function handleStep(key: (typeof EV_STATS)[number]["key"], amount: -1 | 1) {
+    const currentValue = form[key] as number;
+    setForm({
+      ...form,
+      [key]: getSanitizedEVValue(key, currentValue + amount),
+    });
+  }
+
+  function handleReset() {
+    setForm({
+      ...form,
+      evH: 0,
+      evA: 0,
+      evB: 0,
+      evC: 0,
+      evD: 0,
+      evS: 0,
+    });
   }
 
   return (
@@ -2482,30 +2514,71 @@ function EVSection({
         >
           残り {Math.max(remaining, 0)}
         </div>
+        {remaining === 0 && !overTotal ? (
+          <div className="ev-max-note">最大まで振っています</div>
+        ) : null}
       </div>
 
       <div className="ev-grid">
         {EV_STATS.map(({ key, label, full }) => {
           const val = form[key] as number;
           const isOver = val > EV_MAX_SINGLE;
+          const minusDisabled = val <= 0;
+          const plusDisabled = val >= EV_MAX_SINGLE || remaining <= 0;
+          const inputId = `ev-input-${key}`;
           return (
             <div key={key} className={`ev-cell ev-cell--${key}`}>
-              <div className="ev-label">{label}</div>
+              <label htmlFor={inputId} className="ev-label">
+                {label}
+              </label>
               <div className="ev-sublabel">{full}</div>
-              <input
-                type="number"
-                inputMode="numeric"
-                className={`ev-input${isOver ? " ev-input-error" : ""}`}
-                min={0}
-                max={EV_MAX_SINGLE}
-                value={val === 0 ? "" : val}
-                placeholder="0"
-                onChange={(e) => handleChange(key, e.target.value)}
-                data-testid={`input-ev-${label.toLowerCase()}`}
-              />
+              <div className="ev-stepper" aria-label={`${label}の努力値`}>
+                <button
+                  type="button"
+                  className="ev-stepper-btn"
+                  onClick={() => handleStep(key, -1)}
+                  disabled={minusDisabled}
+                  aria-label={`${label}を1減らす`}
+                >
+                  −
+                </button>
+                <input
+                  id={inputId}
+                  type="number"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  className={`ev-input${isOver ? " ev-input-error" : ""}`}
+                  min={0}
+                  max={EV_MAX_SINGLE}
+                  step={1}
+                  value={val}
+                  onChange={(e) => handleChange(key, e.target.value)}
+                  onBlur={(e) => handleChange(key, e.target.value)}
+                  aria-describedby="ev-rule-note"
+                  data-testid={`input-ev-${label.toLowerCase()}`}
+                />
+                <button
+                  type="button"
+                  className="ev-stepper-btn"
+                  onClick={() => handleStep(key, 1)}
+                  disabled={plusDisabled}
+                  aria-label={`${label}を1増やす`}
+                >
+                  ＋
+                </button>
+              </div>
             </div>
           );
         })}
+      </div>
+
+      <div className="ev-actions">
+        <button type="button" className="ev-reset-btn" onClick={handleReset}>
+          努力値をリセット
+        </button>
+        <span id="ev-rule-note" className="ev-rule-note">
+          1つは{EV_MAX_SINGLE}まで・合計{EV_MAX_TOTAL}まで
+        </span>
       </div>
 
       {overSingle && (
