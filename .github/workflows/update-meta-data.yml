@@ -8,7 +8,7 @@ on:
         required: false
         default: ""
   schedule:
-    - cron: "21 18 * * 1"
+    - cron: "0 20 * * *"
 
 permissions:
   contents: write
@@ -29,11 +29,21 @@ jobs:
         with:
           node-version: 22
 
+      - name: Log update trigger
+        run: |
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            echo "Update trigger: schedule (daily around 05:00 JST / 20:00 UTC previous day)"
+            echo "PokeDB URL input: empty (using script default URLs)"
+          else
+            echo "Update trigger: workflow_dispatch (manual)"
+            echo "PokeDB URL input: ${{ github.event.inputs.source_urls || 'empty (using script default URLs)' }}"
+          fi
+
       - name: Fetch and build meta.json
         id: update_meta
         run: node scripts/update-meta-data.mjs
         env:
-          POKEDB_PUBLIC_JSON_URLS: ${{ github.event.inputs.source_urls || vars.POKEDB_PUBLIC_JSON_URLS }}
+          POKEDB_PUBLIC_JSON_URLS: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.source_urls || '' }}
 
       - name: Commit updated meta.json
         run: |
