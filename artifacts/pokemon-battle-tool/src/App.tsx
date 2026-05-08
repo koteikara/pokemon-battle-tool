@@ -604,12 +604,12 @@ function PokemonInput({
       )}
       {showError && (
         <div className="field-error-msg" data-testid="error-invalid-pokemon">
-          このポケモンはポケモンチャンピオンズでは使えません
+          このポケモンは使えません
         </div>
       )}
       {showOk && (
         <div className="field-ok-msg" data-testid="msg-valid-pokemon">
-          OK
+          使えます
         </div>
       )}
     </div>
@@ -1687,12 +1687,12 @@ function PokemonApiDataSummary({ data }: { data: PokemonApiData }) {
   return (
     <div className="pokeapi-summary-lines">
       <div>
-        タイプ：{data.types.length > 0 ? data.types.join(" / ") : "未取得"}
+        タイプ：{data.types.length > 0 ? data.types.join(" / ") : "まだ情報がありません"}
       </div>
       <div>種族値：{formatPokemonApiStats(data)}</div>
       <div>
         特性候補：
-        {data.abilities.length > 0 ? data.abilities.join(" / ") : "未取得"}
+        {data.abilities.length > 0 ? data.abilities.join(" / ") : "まだ情報がありません"}
       </div>
     </div>
   );
@@ -1779,12 +1779,12 @@ function MoveInfoCards({ states }: { states: MoveInfoState[] }) {
         {states.map((state, index) => (
           <div className={`move-info-card move-info-card--${state.status}`} key={`${state.moveName}-${index}`}>
             <div className="move-info-name">{state.moveName}</div>
-            {state.status === "loading" && <div className="move-info-message">技情報を取得中...</div>}
+            {state.status === "loading" && <div className="move-info-message">技情報を読み込み中...</div>}
             {state.status === "unsupported" && (
               <div className="move-info-message">詳しい技情報はまだありません</div>
             )}
             {state.status === "error" && (
-              <div className="move-info-message">技情報を取得できませんでした。入力はそのまま続けられます</div>
+              <div className="move-info-message">技情報を表示できませんでした。入力はそのまま続けられます</div>
             )}
             {state.status === "success" && state.data && (
               <div className="move-info-lines">
@@ -1944,20 +1944,12 @@ export default function App() {
 
   return (
     <div id="app-root">
-      <div className="hud-bg-layer" aria-hidden="true" />
+      <div className="app-bg-layer" aria-hidden="true" />
       <header className="site-header">
         <div className="site-header-icon" aria-hidden="true" />
-        <div
-          className="site-header-deco site-header-deco--left"
-          aria-hidden="true"
-        />
-        <div
-          className="site-header-deco site-header-deco--right"
-          aria-hidden="true"
-        />
         <div className="site-header-copy">
-          <h1>ポケモンバトルツール（Web版）</h1>
-          <p>最適な選出で勝利をつかめ！</p>
+          <h1>ポケモンバトルツール</h1>
+          <p>相手の選出を予測して、自分のおすすめを確認できます。</p>
         </div>
       </header>
 
@@ -1981,7 +1973,7 @@ export default function App() {
               data-testid="tab-battle"
             >
               <span className="tab-icon">⚔️</span>
-              <span className="tab-label">相手入力・最適選出</span>
+              <span className="tab-label">相手入力・おすすめ選出</span>
             </button>
           </nav>
           {screen === "register" && (
@@ -2172,7 +2164,7 @@ function GuideScreen() {
           },
           {
             title: "STEP 2 相手の6匹を入力する",
-            body: "相手入力・最適選出画面で、相手のパーティを最大6匹入力します。",
+            body: "相手入力・おすすめ選出画面で、相手のパーティを最大6匹入力します。",
             note: "全部入力しなくても動きますが、6匹入力した方が予測しやすくなります。",
           },
           {
@@ -2503,12 +2495,12 @@ function RegisterScreen({
           </div>
           {pokeApiStatus === "idle" && (
             <div className="pokeapi-card-message">
-              ポケモンを選ぶとタイプ・種族値・特性候補を取得します
+              ポケモンを選ぶとタイプ・種族値・特性候補を表示します
             </div>
           )}
           {pokeApiStatus === "loading" && (
             <div className="pokeapi-card-message">
-              ポケモン情報を取得中...
+              ポケモン情報を読み込み中...
             </div>
           )}
           {pokeApiStatus === "success" && pokeApiData && (
@@ -2528,7 +2520,7 @@ function RegisterScreen({
           )}
           {pokeApiStatus === "error" && (
             <div className="pokeapi-card-message">
-              詳しい情報を取得できませんでした。入力はそのまま続けられます
+              詳しい情報を表示できませんでした。入力はそのまま続けられます
             </div>
           )}
         </div>
@@ -2912,7 +2904,7 @@ function BattleScreen({
         <p
           style={{
             fontSize: 12,
-            color: "#aaa",
+            color: "#6B7280",
             textAlign: "center",
             marginTop: 12,
           }}
