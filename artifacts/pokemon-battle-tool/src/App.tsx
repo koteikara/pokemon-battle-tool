@@ -24,6 +24,8 @@ import {
 type Screen = "register" | "battle";
 type BottomView = "home" | "saved" | "guide";
 
+const HEADER_STADIUM_BG_URL = `${import.meta.env.BASE_URL}header-stadium-bg.svg`;
+
 // モバイルSafari向けの通常Webサイト（PWA/ネイティブ前提ではない）
 
 interface MyPokemon {
@@ -1887,6 +1889,213 @@ function getPokemonImageUrl(name: string): string | undefined {
   return data?.imageUrl ?? data?.officialArtworkUrl;
 }
 
+interface HeaderPokemonData {
+  name: string;
+  imageUrl?: string;
+  types: string[];
+}
+
+function getRandomPokemonPair(): [string, string] {
+  const uniquePokemon = Array.from(new Set(ALLOWED_POKEMON));
+  if (uniquePokemon.length < 2) return ["ピカチュウ", "リザードン"];
+
+  const leftIndex = Math.floor(Math.random() * uniquePokemon.length);
+  let rightIndex = Math.floor(Math.random() * (uniquePokemon.length - 1));
+  if (rightIndex >= leftIndex) rightIndex += 1;
+
+  return [uniquePokemon[leftIndex], uniquePokemon[rightIndex]];
+}
+
+function getPokemonHeaderDisplayData(
+  name: string,
+  data?: PokemonApiData | null,
+): HeaderPokemonData {
+  const cachedData = data ?? getCachedPokemonApiData(name);
+
+  return {
+    name,
+    imageUrl: cachedData?.imageUrl ?? cachedData?.officialArtworkUrl,
+    types: cachedData?.types?.slice(0, 2) ?? [],
+  };
+}
+
+function BattleHeaderPokemon({
+  pokemon,
+  side,
+}: {
+  pokemon: HeaderPokemonData;
+  side: "left" | "right";
+}) {
+  const [imageFailed, setImageFailed] = useState(false);
+  const hasImage = Boolean(pokemon.imageUrl) && !imageFailed;
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [pokemon.imageUrl]);
+
+  return (
+    <div className={`battle-header-pokemon battle-header-pokemon--${side}`}>
+      <div className="battle-header-platform" aria-hidden="true" />
+      <div className="battle-header-sprite-wrap">
+        {hasImage ? (
+          <img
+            className="battle-header-sprite"
+            src={pokemon.imageUrl}
+            alt={`${pokemon.name}の画像`}
+            onError={() => setImageFailed(true)}
+          />
+        ) : (
+          <div
+            className="battle-header-sprite battle-header-placeholder"
+            aria-label={`${pokemon.name}の画像なし`}
+            role="img"
+          >
+            ?
+          </div>
+        )}
+      </div>
+      <div className="battle-header-nameplate">
+        <div className="battle-header-name-row">
+          <span className="battle-header-name">{pokemon.name}</span>
+          <span className="battle-header-level">Lv.50</span>
+        </div>
+        {pokemon.types.length > 0 && (
+          <div
+            className="battle-header-types"
+            aria-label={`${pokemon.name}のタイプ`}
+          >
+            {pokemon.types.map((type) => (
+              <span
+                className="battle-header-type-chip"
+                key={`${pokemon.name}-${type}`}
+              >
+                {type}
+              </span>
+            ))}
+          </div>
+        )}
+        <div className="battle-header-hp" aria-hidden="true">
+          <span />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BattleHeader() {
+  const [pair, setPair] = useState<[string, string]>(() =>
+    getRandomPokemonPair(),
+  );
+  const [pokemon, setPokemon] = useState<
+    [HeaderPokemonData, HeaderPokemonData]
+  >(() => [
+    getPokemonHeaderDisplayData(pair[0]),
+    getPokemonHeaderDisplayData(pair[1]),
+  ]);
+
+  useEffect(() => {
+    let active = true;
+    setPokemon([
+      getPokemonHeaderDisplayData(pair[0]),
+      getPokemonHeaderDisplayData(pair[1]),
+    ]);
+
+    Promise.allSettled(pair.map((name) => fetchPokemonApiData(name))).then(
+      (results) => {
+        if (!active) return;
+        setPokemon([
+          getPokemonHeaderDisplayData(
+            pair[0],
+            results[0].status === "fulfilled" ? results[0].value : null,
+          ),
+          getPokemonHeaderDisplayData(
+            pair[1],
+            results[1].status === "fulfilled" ? results[1].value : null,
+          ),
+        ]);
+      },
+    );
+
+    return () => {
+      active = false;
+    };
+  }, [pair]);
+
+  function shuffleHeaderPokemon() {
+    setPair((current) => {
+      let next = getRandomPokemonPair();
+      if (ALLOWED_POKEMON.length > 2) {
+        let guard = 0;
+        while (next[0] === current[0] && next[1] === current[1] && guard < 8) {
+          next = getRandomPokemonPair();
+          guard += 1;
+        }
+      }
+      return next;
+    });
+  }
+
+  return (
+    <header
+      className="site-header battle-header"
+      style={
+        {
+          "--battle-header-bg": `url("${HEADER_STADIUM_BG_URL}")`,
+        } as React.CSSProperties
+      }
+    >
+      <div className="battle-header-scanline" aria-hidden="true" />
+      <div
+        className="battle-header-corner battle-header-corner--tl"
+        aria-hidden="true"
+      />
+      <div
+        className="battle-header-corner battle-header-corner--tr"
+        aria-hidden="true"
+      />
+      <div
+        className="battle-header-corner battle-header-corner--bl"
+        aria-hidden="true"
+      />
+      <div
+        className="battle-header-corner battle-header-corner--br"
+        aria-hidden="true"
+      />
+
+      <div className="battle-header-copy">
+        <div className="battle-header-lamps" aria-hidden="true">
+          <span />
+          <span />
+          <span />
+        </div>
+        <div className="battle-header-text">
+          <h1>ポケモンバトルツール</h1>
+          <p>相手の選出を予測して、おすすめの3匹を確認できます。</p>
+        </div>
+        <button
+          type="button"
+          className="battle-header-shuffle"
+          onClick={shuffleHeaderPokemon}
+          aria-label="ヘッダーのポケモンを入れ替える"
+        >
+          入れ替え
+        </button>
+      </div>
+
+      <div
+        className="battle-header-arena"
+        aria-label="ランダムに選ばれた2匹のポケモンの対戦表示"
+      >
+        <BattleHeaderPokemon pokemon={pokemon[0]} side="left" />
+        <div className="battle-header-vs" aria-label="対戦">
+          VS
+        </div>
+        <BattleHeaderPokemon pokemon={pokemon[1]} side="right" />
+      </div>
+    </header>
+  );
+}
+
 function CachedPokemonApiSummary({ name }: { name: string }) {
   const data = getCachedPokemonApiData(name);
   if (!data) return null;
@@ -2137,18 +2346,7 @@ export default function App() {
     <div id="app-root">
       <div className="app-bg-layer" aria-hidden="true" />
       <div className="pokedex-shell">
-        <header className="site-header">
-          <div className="site-header-icon" aria-hidden="true" />
-          <div className="site-header-lamps" aria-hidden="true">
-            <span className="site-header-lamp site-header-lamp--red" />
-            <span className="site-header-lamp site-header-lamp--yellow" />
-            <span className="site-header-lamp site-header-lamp--green" />
-          </div>
-          <div className="site-header-copy">
-            <h1>ポケモンバトルツール</h1>
-            <p>相手の選出を予測して、自分のおすすめを確認できます。</p>
-          </div>
-        </header>
+        <BattleHeader />
 
         <main className="pokedex-screen-panel">
           {bottomView === "home" && (
