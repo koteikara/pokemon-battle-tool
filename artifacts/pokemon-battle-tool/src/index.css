@@ -1303,7 +1303,7 @@ button.result-tag {
   display: grid;
   /* Keep the battle header independent from the legacy two-column site header. */
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: auto minmax(210px, 1fr);
+  grid-template-rows: auto minmax(232px, 1fr);
   align-items: stretch;
   justify-items: stretch;
   gap: clamp(6px, 1.5vw, 12px);
@@ -1402,32 +1402,35 @@ button.result-tag {
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: end;
   gap: clamp(2px, 1.5vw, 14px);
-  padding: clamp(6px, 1.2vw, 12px) clamp(10px, 3vw, 34px) clamp(2px, 0.8vw, 8px);
+  padding: clamp(4px, 0.9vw, 10px) clamp(0px, 1.4vw, 18px) 0;
 }
 .battle-header-pokemon {
   min-width: 0;
   display: grid;
-  grid-template-rows: minmax(150px, 1fr);
+  grid-template-rows: minmax(178px, 1fr);
   justify-items: center;
   align-items: end;
   transform-origin: center bottom;
   z-index: 3;
+  overflow: visible;
 }
 .battle-header-pokemon--left {
-  justify-self: start;
-  padding-left: clamp(8px, 5vw, 58px);
+  justify-self: stretch;
+  justify-items: start;
+  padding-left: 0;
   animation: battlePokemonIdleLeft 4.2s ease-in-out infinite;
 }
 .battle-header-pokemon--right {
-  justify-self: end;
-  padding-right: clamp(8px, 5vw, 58px);
+  justify-self: stretch;
+  justify-items: end;
+  padding-right: 0;
   animation: battlePokemonIdleRight 5s ease-in-out 0.35s infinite;
 }
 .battle-header-platform {
   grid-row: 1;
   align-self: end;
-  width: min(86%, 236px);
-  height: clamp(28px, 5.2vw, 42px);
+  width: min(92%, 290px);
+  height: clamp(30px, 5.6vw, 48px);
   margin-bottom: clamp(5px, 1.2vw, 10px);
   border: 3px solid rgba(255, 255, 255, 0.78);
   border-radius: 50%;
@@ -1442,32 +1445,44 @@ button.result-tag {
 .battle-header-sprite-wrap {
   grid-row: 1;
   align-self: end;
-  width: min(36vw, 214px);
-  max-width: 100%;
-  aspect-ratio: 1;
+  width: clamp(210px, 44vw, 372px);
+  height: clamp(184px, 30vw, 324px);
+  max-width: none;
+  overflow: hidden;
   display: grid;
-  place-items: end center;
-  filter: drop-shadow(0 8px 0 rgba(17, 24, 39, 0.48))
-    drop-shadow(0 0 16px rgba(47, 243, 255, 0.22));
+  place-items: center;
+  filter: drop-shadow(0 10px 0 rgba(17, 24, 39, 0.5))
+    drop-shadow(0 0 18px rgba(47, 243, 255, 0.24));
 }
 .battle-header-pokemon--left .battle-header-sprite-wrap {
-  width: min(35vw, 210px);
+  justify-self: start;
+  margin-left: clamp(-70px, -7vw, -24px);
+  border-radius: 0 38% 26% 0;
 }
 .battle-header-pokemon--right .battle-header-sprite-wrap {
-  width: min(34vw, 204px);
+  justify-self: end;
+  margin-right: clamp(-70px, -7vw, -24px);
+  border-radius: 38% 0 0 26%;
 }
 .battle-header-sprite {
-  width: 100%;
-  max-height: clamp(146px, 26vw, 208px);
+  width: 148%;
+  height: 148%;
+  max-width: none;
+  max-height: none;
   object-fit: contain;
-  transform-origin: center bottom;
+  object-position: center top;
+  transform-origin: center center;
   -webkit-user-drag: none;
 }
 .battle-header-pokemon--left .battle-header-sprite {
-  transform: translateX(clamp(8px, 1.8vw, 18px));
+  object-position: 34% 16%;
+  transform: translate3d(clamp(-22px, -2.8vw, -8px), clamp(8px, 1.2vw, 16px), 0)
+    scale(1.18);
 }
 .battle-header-pokemon--right .battle-header-sprite {
-  transform: translateX(clamp(-18px, -1.8vw, -8px)) scaleX(-1);
+  object-position: 66% 16%;
+  transform: translate3d(clamp(8px, 2.8vw, 22px), clamp(8px, 1.2vw, 16px), 0)
+    scale(1.18) scaleX(-1);
 }
 .battle-header-placeholder {
   width: min(100%, 176px);
@@ -1614,7 +1629,7 @@ button.result-tag {
   }
   .battle-header {
     min-height: 326px;
-    grid-template-rows: auto minmax(182px, 1fr);
+    grid-template-rows: auto minmax(190px, 1fr);
     gap: 6px;
     padding: 10px;
     border-width: 3px;
@@ -1639,24 +1654,39 @@ button.result-tag {
   }
   .battle-header-arena {
     gap: 0;
-    padding: 0 6px 4px;
+    padding: 0 0 2px;
   }
   .battle-header-pokemon {
-    grid-template-rows: minmax(136px, 1fr);
+    grid-template-rows: minmax(152px, 1fr);
   }
   .battle-header-pokemon--left {
-    padding-left: 2px;
+    padding-left: 0;
   }
   .battle-header-pokemon--right {
-    padding-right: 2px;
+    padding-right: 0;
   }
   .battle-header-sprite-wrap,
   .battle-header-pokemon--left .battle-header-sprite-wrap,
   .battle-header-pokemon--right .battle-header-sprite-wrap {
-    width: min(31vw, 120px);
+    width: clamp(140px, 42vw, 190px);
+    height: clamp(132px, 36vw, 170px);
+  }
+  .battle-header-pokemon--left .battle-header-sprite-wrap {
+    margin-left: clamp(-44px, -10vw, -22px);
+  }
+  .battle-header-pokemon--right .battle-header-sprite-wrap {
+    margin-right: clamp(-44px, -10vw, -22px);
   }
   .battle-header-sprite {
-    max-height: 122px;
+    width: 154%;
+    height: 154%;
+  }
+  .battle-header-pokemon--left .battle-header-sprite {
+    transform: translate3d(clamp(-12px, -2.4vw, -6px), 10px, 0) scale(1.14);
+  }
+  .battle-header-pokemon--right .battle-header-sprite {
+    transform: translate3d(clamp(6px, 2.4vw, 12px), 10px, 0) scale(1.14)
+      scaleX(-1);
   }
   .battle-header-platform {
     width: 92%;
@@ -1696,7 +1726,7 @@ button.result-tag {
 @media (max-width: 380px) {
   .battle-header {
     min-height: 300px;
-    grid-template-rows: auto minmax(160px, 1fr);
+    grid-template-rows: auto minmax(166px, 1fr);
   }
   .battle-header-title-image {
     max-height: 62px;
@@ -1707,10 +1737,12 @@ button.result-tag {
   .battle-header-sprite-wrap,
   .battle-header-pokemon--left .battle-header-sprite-wrap,
   .battle-header-pokemon--right .battle-header-sprite-wrap {
-    width: min(30vw, 106px);
+    width: clamp(122px, 41vw, 156px);
+    height: clamp(116px, 34vw, 142px);
   }
   .battle-header-sprite {
-    max-height: 110px;
+    width: 152%;
+    height: 152%;
   }
   .battle-vs-badge {
     width: 44px;
