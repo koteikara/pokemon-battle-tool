@@ -10,6 +10,12 @@ import {
 } from "./lib/pokeApi";
 import { guessMoveType } from "./lib/moveTypeGuess";
 import {
+  fetchMoveApiData,
+  getCachedMoveApiData,
+  getMoveApiName,
+  type MoveApiData,
+} from "./lib/pokeApiMoves";
+import {
   getTypeEffectiveness,
   isPokemonType,
   type PokemonType,
@@ -1275,16 +1281,123 @@ function getKnownPokemonTypes(name: string): PokemonType[] {
   return data?.types.filter(isPokemonType) ?? [];
 }
 
+function getPlayerMoveDetails(player: MyPokemon): Array<{
+  name: string;
+  apiData: MoveApiData | null;
+  type: PokemonType | null;
+}> {
+  return [player.move1, player.move2, player.move3, player.move4]
+    .map((move) => move.trim())
+    .filter(Boolean)
+    .map((name) => {
+      const apiData = getCachedMoveApiData(name);
+      return {
+        name,
+        apiData,
+        type: apiData?.type ?? guessMoveType(name),
+      };
+    });
+}
+
+function isAttackingMove(apiData: MoveApiData): boolean {
+  return apiData.damageClass !== "変化" && apiData.power !== null;
+}
+
+function formatMovePower(power: number | null): string {
+  return power === null ? "威力なし" : `威力${power}`;
+}
+
+function scoreMoveDataBonuses(
+  player: MyPokemon,
+  predictedOpponents: OppPrediction[],
+  moves: ReturnType<typeof getPlayerMoveDetails>,
+): ScoreBreakdown[] {
+  const breakdown: ScoreBreakdown[] = [];
+  const apiMoves = moves.filter(
+    (move): move is { name: string; apiData: MoveApiData; type: PokemonType | null } =>
+      move.apiData !== null,
+  );
+  if (apiMoves.length === 0) return breakdown;
+
+  apiMoves.forEach((move) => {
+    const typeLabel = move.apiData.type ?? "タイプ不明";
+    breakdown.push({
+      label: `${move.name}：${typeLabel}${move.apiData.damageClass} ${formatMovePower(move.apiData.power)}`,
+      points: 0,
+    });
+  });
+
+  const physicalAttackCount = apiMoves.filter(
+    (move) => move.apiData.damageClass === "物理" && isAttackingMove(move.apiData),
+  ).length;
+  const specialAttackCount = apiMoves.filter(
+    (move) => move.apiData.damageClass === "特殊" && isAttackingMove(move.apiData),
+  ).length;
+  const attackingMoveCount = apiMoves.filter((move) => isAttackingMove(move.apiData)).length;
+
+  const hasPriorityMove = apiMoves.some((move) => move.apiData.priority >= 1);
+  if (hasPriorityMove) breakdown.push({ label: "先制技あり", points: 5 });
+
+  if (player.evA >= 24 && physicalAttackCount > 0)
+    breakdown.push({ label: "物理努力値と物理技が一致", points: 4 });
+  if (player.evC >= 24 && specialAttackCount > 0)
+    breakdown.push({ label: "特殊努力値と特殊技が一致", points: 4 });
+
+  if (player.evA >= 24 && physicalAttackCount === 0)
+    breakdown.push({ label: "物理攻撃技が少ない", points: -6 });
+  if (player.evC >= 24 && specialAttackCount === 0)
+    breakdown.push({ label: "特殊攻撃技が少ない", points: -6 });
+  if (attackingMoveCount === 0)
+    breakdown.push({ label: "攻撃技がありません", points: -8 });
+
+  const typedOpponents = predictedOpponents
+    .slice(0, 3)
+    .map((opp, index) => ({ ...opp, index, types: getKnownPokemonTypes(opp.name) }))
+    .filter((opp) => opp.types.length > 0);
+
+  let hasPower100SuperEffective = false;
+  let hasPower120SuperEffective = false;
+  let hasPriorityTopSuperEffective = false;
+
+  typedOpponents.forEach((opp) => {
+    apiMoves.forEach((move) => {
+      const type = move.apiData.type;
+      const power = move.apiData.power;
+      if (!type || power === null || !isAttackingMove(move.apiData)) return;
+      const effectiveness = getTypeEffectiveness(type, opp.types);
+      if (effectiveness < 2) return;
+
+      if (power >= 120) hasPower120SuperEffective = true;
+      if (power >= 100) hasPower100SuperEffective = true;
+      if (opp.index === 0 && move.apiData.priority >= 1)
+        hasPriorityTopSuperEffective = true;
+
+      breakdown.push({
+        label: `${opp.name}に${move.name}${effectiveness >= 4 ? "4倍" : "2倍"}`,
+        points: 0,
+      });
+    });
+  });
+
+  if (hasPower120SuperEffective)
+    breakdown.push({ label: "威力120以上の抜群技", points: 8 });
+  else if (hasPower100SuperEffective)
+    breakdown.push({ label: "威力100以上の抜群技", points: 6 });
+  if (hasPriorityTopSuperEffective)
+    breakdown.push({ label: "予測1位に抜群の先制技", points: 8 });
+
+  return breakdown;
+}
+
 function scoreTypeMatchups(
   player: MyPokemon,
   predictedOpponents: OppPrediction[],
+  moveDetails = getPlayerMoveDetails(player),
 ): ScoreBreakdown[] {
-  const moves = [player.move1, player.move2, player.move3, player.move4]
-    .map((move) => ({ name: move, type: guessMoveType(move) }))
-    .filter(
-      (move): move is { name: string; type: PokemonType } =>
-        Boolean(move.name.trim()) && move.type !== null,
-    );
+  const moves = moveDetails.filter(
+    (move): move is { name: string; apiData: MoveApiData | null; type: PokemonType } =>
+      move.type !== null,
+  );
   if (moves.length === 0) return [];
 
   const typedOpponents = predictedOpponents
@@ -1304,12 +1417,13 @@ function scoreTypeMatchups(
 
   typedOpponents.forEach((opp) => {
     const best = moves.reduce<{
+      name: string;
       type: PokemonType;
       effectiveness: number;
     } | null>((current, move) => {
       const effectiveness = getTypeEffectiveness(move.type, opp.types);
       if (!current || effectiveness > current.effectiveness)
-        return { type: move.type, effectiveness };
+        return { name: move.name, type: move.type, effectiveness };
       return current;
     }, null);
 
@@ -1319,10 +1433,10 @@ function scoreTypeMatchups(
 
     if (best.effectiveness >= 4) {
       superEffectiveCount += 1;
-      breakdown.push({ label: `${opp.name}に${best.type}4倍`, points: 18 });
+      breakdown.push({ label: `${opp.name}に${best.name}4倍`, points: 18 });
     } else if (best.effectiveness >= 2) {
       superEffectiveCount += 1;
-      breakdown.push({ label: `${opp.name}に${best.type}2倍`, points: 10 });
+      breakdown.push({ label: `${opp.name}に${best.name}2倍`, points: 10 });
     }
   });
 
@@ -1359,6 +1473,7 @@ function scorePlayerPokemon(
   const moves = [player.move1, player.move2, player.move3, player.move4].filter(
     Boolean,
   );
+  const moveDetails = getPlayerMoveDetails(player);
   const moveText = moves.join(" ").toLowerCase();
 
   if (player.evA >= 24) breakdown.push({ label: "物理火力", points: 8 });
@@ -1489,7 +1604,8 @@ function scorePlayerPokemon(
       breakdown.push({ label: entry.label, points: entry.points });
   });
 
-  breakdown.push(...scoreTypeMatchups(player, predictedOpponents));
+  breakdown.push(...scoreMoveDataBonuses(player, predictedOpponents, moveDetails));
+  breakdown.push(...scoreTypeMatchups(player, predictedOpponents, moveDetails));
 
   const score = breakdown.reduce((sum, b) => sum + b.points, 0);
   const topReasons = [...breakdown]
@@ -1633,6 +1749,96 @@ function CachedPokemonApiSummary({ name }: { name: string }) {
     <div className="saved-pokeapi-summary">
       <strong>ポケモン情報</strong>
       <PokemonApiDataSummary data={data} />
+    </div>
+  );
+}
+
+
+type MoveInfoStatus = "loading" | "success" | "unsupported" | "error";
+type MoveInfoState = {
+  moveName: string;
+  status: MoveInfoStatus;
+  data: MoveApiData | null;
+};
+
+function MoveTypeChip({ type }: { type: PokemonType | null }) {
+  return <span className="move-type-chip">{type ?? "タイプ不明"}</span>;
+}
+
+function MoveDamageBadge({ damageClass }: { damageClass: MoveApiData["damageClass"] }) {
+  return <span className={`move-damage-badge move-damage-badge--${damageClass}`}>{damageClass}</span>;
+}
+
+function MoveInfoCards({ states }: { states: MoveInfoState[] }) {
+  if (states.length === 0) return null;
+
+  return (
+    <div className="move-info-panel" data-testid="move-info-panel">
+      <div className="move-info-title">技情報</div>
+      <div className="move-info-grid">
+        {states.map((state, index) => (
+          <div className={`move-info-card move-info-card--${state.status}`} key={`${state.moveName}-${index}`}>
+            <div className="move-info-name">{state.moveName}</div>
+            {state.status === "loading" && <div className="move-info-message">技情報を取得中...</div>}
+            {state.status === "unsupported" && (
+              <div className="move-info-message">詳しい技情報はまだありません</div>
+            )}
+            {state.status === "error" && (
+              <div className="move-info-message">技情報を取得できませんでした。入力はそのまま続けられます</div>
+            )}
+            {state.status === "success" && state.data && (
+              <div className="move-info-lines">
+                <div>タイプ：<MoveTypeChip type={state.data.type} /></div>
+                <div>分類：<MoveDamageBadge damageClass={state.data.damageClass} /></div>
+                <div>威力：{state.data.power ?? "なし"}</div>
+                <div>命中：{state.data.accuracy ?? "なし"}</div>
+                <div>優先度：{state.data.priority}</div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function getMoveTeamChecks(form: Pick<MyPokemon, "evA" | "evC">, states: MoveInfoState[]): Array<{ kind: "good" | "warn"; label: string }> {
+  const knownMoves = states
+    .map((state) => state.data)
+    .filter((data): data is MoveApiData => data !== null);
+  if (knownMoves.length === 0) return [];
+
+  const attackingMoves = knownMoves.filter(isAttackingMove);
+  const physicalCount = attackingMoves.filter((move) => move.damageClass === "物理").length;
+  const specialCount = attackingMoves.filter((move) => move.damageClass === "特殊").length;
+  const statusCount = knownMoves.filter((move) => move.damageClass === "変化").length;
+  const checks: Array<{ kind: "good" | "warn"; label: string }> = [];
+
+  if (attackingMoves.length === 0) checks.push({ kind: "warn", label: "攻撃技がありません" });
+  if (form.evA >= 24 && physicalCount === 0)
+    checks.push({ kind: "warn", label: "Aに多く振っていますが、物理技が少なめです" });
+  if (form.evC >= 24 && specialCount === 0)
+    checks.push({ kind: "warn", label: "Cに多く振っていますが、特殊技が少なめです" });
+  if (statusCount >= 3) checks.push({ kind: "warn", label: "変化技が多めです" });
+  if (knownMoves.some((move) => move.priority >= 1))
+    checks.push({ kind: "good", label: "先制技があります" });
+  if (form.evA >= 24 && physicalCount > 0)
+    checks.push({ kind: "good", label: "Aと物理技が合っています" });
+  if (form.evC >= 24 && specialCount > 0)
+    checks.push({ kind: "good", label: "Cと特殊技が合っています" });
+
+  return checks;
+}
+
+function MoveTeamChecks({ checks }: { checks: Array<{ kind: "good" | "warn"; label: string }> }) {
+  if (checks.length === 0) return null;
+  return (
+    <div className="move-check-list">
+      {checks.map((check) => (
+        <span key={`${check.kind}-${check.label}`} className={`move-check move-check--${check.kind}`}>
+          {check.label}
+        </span>
+      ))}
     </div>
   );
 }
@@ -2152,6 +2358,7 @@ function RegisterScreen({
     "idle" | "loading" | "success" | "unsupported" | "error"
   >("idle");
   const [pokeApiData, setPokeApiData] = useState<PokemonApiData | null>(null);
+  const [moveInfoStates, setMoveInfoStates] = useState<MoveInfoState[]>([]);
 
   function f(key: keyof typeof form) {
     return (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
@@ -2205,6 +2412,63 @@ function RegisterScreen({
       cancelled = true;
     };
   }, [form.name]);
+
+  useEffect(() => {
+    const selectedMoves = [form.move1, form.move2, form.move3, form.move4]
+      .map((move) => move.trim())
+      .filter(Boolean);
+    let cancelled = false;
+
+    if (selectedMoves.length === 0) {
+      setMoveInfoStates([]);
+      return;
+    }
+
+    setMoveInfoStates(
+      selectedMoves.map((moveName) => {
+        if (!getMoveApiName(moveName)) {
+          return { moveName, status: "unsupported", data: null };
+        }
+        const cached = getCachedMoveApiData(moveName);
+        if (cached) return { moveName, status: "success", data: cached };
+        return { moveName, status: "loading", data: null };
+      }),
+    );
+
+    selectedMoves.forEach((moveName) => {
+      if (!getMoveApiName(moveName) || getCachedMoveApiData(moveName)) return;
+
+      fetchMoveApiData(moveName)
+        .then((data) => {
+          if (cancelled) return;
+          setMoveInfoStates((prev) =>
+            prev.map((state) =>
+              state.moveName === moveName
+                ? data
+                  ? { moveName, status: "success", data }
+                  : { moveName, status: "error", data: null }
+                : state,
+            ),
+          );
+        })
+        .catch(() => {
+          if (cancelled) return;
+          setMoveInfoStates((prev) =>
+            prev.map((state) =>
+              state.moveName === moveName
+                ? { moveName, status: "error", data: null }
+                : state,
+            ),
+          );
+        });
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [form.move1, form.move2, form.move3, form.move4]);
+
+  const moveTeamChecks = getMoveTeamChecks(form, moveInfoStates);
 
   const evTotal = EV_STATS.reduce((sum, s) => sum + (form[s.key] as number), 0);
   const evOk =
@@ -2310,6 +2574,8 @@ function RegisterScreen({
               </div>
             ) : null;
           })()}
+          <MoveInfoCards states={moveInfoStates} />
+          <MoveTeamChecks checks={moveTeamChecks} />
         </div>
 
         <div className="field">
