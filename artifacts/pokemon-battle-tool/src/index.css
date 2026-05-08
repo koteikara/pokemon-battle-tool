@@ -1219,3 +1219,46 @@ button.result-tag {
   text-align: center;
   color: var(--color-text-muted);
 }
+
+.searchable-select-field {
+  min-width: 0;
+}
+
+.searchable-select-wrap {
+  position: relative;
+  min-width: 0;
+}
+
+.searchable-select-input {
+  margin-bottom: 0;
+}
+
+.searchable-select-list {
+  width: 100%;
+}
+
+.searchable-select-option {
+  appearance: none;
+  border: 0;
+  border-bottom: 1px solid var(--color-border-subtle);
+  border-radius: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  min-height: 48px;
+  font-size: 16px;
+}
+
+.searchable-select-option:last-child {
+  border-bottom: none;
+}
+
+.searchable-select-option:focus-visible {
+  outline: 3px solid rgba(26, 115, 232, 0.28);
+  outline-offset: -3px;
+  background: var(--color-primary-container);
+}
+
+.searchable-select-empty {
+  color: var(--color-text-muted);
+}
