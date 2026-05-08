@@ -662,6 +662,65 @@ textarea.field-input {
   line-height: 1.45;
   overflow-wrap: anywhere;
 }
+
+.prediction-note {
+  position: relative;
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 15px 16px 15px 28px;
+  overflow: hidden;
+  border: 3px solid var(--color-outline);
+  border-radius: 14px;
+  background-color: #fffef8;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent 27px,
+    rgba(80, 140, 220, 0.16) 27px,
+    rgba(80, 140, 220, 0.16) 28px
+  );
+  box-shadow: 3px 3px 0 rgba(17, 24, 39, 0.9);
+  color: var(--color-ink);
+}
+.prediction-note::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 18px;
+  width: 2px;
+  border-radius: 999px;
+  background: rgba(188, 1, 0, 0.5);
+  pointer-events: none;
+}
+.prediction-note-line {
+  display: grid;
+  grid-template-columns: minmax(5.5em, max-content) minmax(0, 1fr);
+  column-gap: 10px;
+  align-items: start;
+  min-width: 0;
+  line-height: 1.65;
+}
+.prediction-note-label {
+  color: #1f2937;
+  font-weight: 900;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+.prediction-note-label::after {
+  content: "：";
+}
+.prediction-note-value {
+  min-width: 0;
+  color: #111827;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+.result-tags--score-breakdown {
+  margin-top: 10px;
+}
 button.result-tag {
   min-height: 40px;
 }
@@ -1279,6 +1338,31 @@ button.result-tag {
   .result-score {
     margin-left: 0;
     min-width: 58px;
+  }
+  .prediction-note {
+    width: 100%;
+    padding: 13px 12px 13px 24px;
+    background-image: repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent 29px,
+      rgba(80, 140, 220, 0.15) 29px,
+      rgba(80, 140, 220, 0.15) 30px
+    );
+  }
+  .prediction-note::before {
+    left: 15px;
+  }
+  .prediction-note-line {
+    grid-template-columns: 1fr;
+    gap: 1px;
+    line-height: 1.7;
+  }
+  .prediction-note-label {
+    font-size: 0.82rem;
+  }
+  .prediction-note-value {
+    font-size: 0.9rem;
   }
   .result-rank-badge {
     min-width: 44px;
