@@ -3643,26 +3643,41 @@ function BattleScreen({
                 />
                 <div className="result-info">
                   <div className="result-name">{p.name}</div>
-                  <div className="result-reason">採用根拠：{p.reason}</div>
-                  <div className="result-detail-lines">
-                    <div>予想型：{p.predictedBuildType}</div>
-                    <div>
-                      持ち物候補：
-                      {formatMetaUsageList(
-                        p.itemCandidates,
-                        p.metaEntry ? "持ち物データなし" : "公開データなし",
-                      )}
+                  <div className="prediction-note">
+                    <div className="prediction-note-line">
+                      <span className="prediction-note-label">採用根拠</span>
+                      <span className="prediction-note-value">{p.reason}</span>
                     </div>
-                    <div>
-                      テラ候補：
-                      {formatMetaUsageList(
-                        p.teraCandidates,
-                        p.metaEntry ? "テラデータなし" : "公開データなし",
-                      )}
+                    <div className="prediction-note-line">
+                      <span className="prediction-note-label">予想型</span>
+                      <span className="prediction-note-value">
+                        {p.predictedBuildType}
+                      </span>
+                    </div>
+                    <div className="prediction-note-line">
+                      <span className="prediction-note-label">持ち物候補</span>
+                      <span className="prediction-note-value">
+                        {formatMetaUsageList(
+                          p.itemCandidates,
+                          p.metaEntry ? "持ち物データなし" : "公開データなし",
+                        )}
+                      </span>
+                    </div>
+                    <div className="prediction-note-line">
+                      <span className="prediction-note-label">テラ候補</span>
+                      <span className="prediction-note-value">
+                        {formatMetaUsageList(
+                          p.teraCandidates,
+                          p.metaEntry ? "テラデータなし" : "公開データなし",
+                        )}
+                      </span>
+                    </div>
+                    <div className="prediction-note-line">
+                      <span className="prediction-note-label">役割</span>
+                      <span className="prediction-note-value">{p.role}</span>
                     </div>
                   </div>
-                  <div className="result-tags">
-                    <span className="result-tag">役割: {p.role}</span>
+                  <div className="result-tags result-tags--score-breakdown">
                     {p.scoreBreakdown.slice(0, 5).map((part) => (
                       <span
                         className="result-tag"
