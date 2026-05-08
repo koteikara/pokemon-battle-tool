@@ -25,6 +25,7 @@ type Screen = "register" | "battle";
 type BottomView = "home" | "saved" | "guide";
 
 const HEADER_STADIUM_BG_URL = `${import.meta.env.BASE_URL}header-stadium-bg.svg`;
+const HEADER_TITLE_URL = `${import.meta.env.BASE_URL}header-title-battle.svg`;
 
 // モバイルSafari向けの通常Webサイト（PWA/ネイティブ前提ではない）
 
@@ -1892,7 +1893,6 @@ function getPokemonImageUrl(name: string): string | undefined {
 interface HeaderPokemonData {
   name: string;
   imageUrl?: string;
-  types: string[];
 }
 
 function getRandomPokemonPair(): [string, string] {
@@ -1915,7 +1915,6 @@ function getPokemonHeaderDisplayData(
   return {
     name,
     imageUrl: cachedData?.imageUrl ?? cachedData?.officialArtworkUrl,
-    types: cachedData?.types?.slice(0, 2) ?? [],
   };
 }
 
@@ -1953,30 +1952,6 @@ function BattleHeaderPokemon({
             ?
           </div>
         )}
-      </div>
-      <div className="battle-header-nameplate">
-        <div className="battle-header-name-row">
-          <span className="battle-header-name">{pokemon.name}</span>
-          <span className="battle-header-level">Lv.50</span>
-        </div>
-        {pokemon.types.length > 0 && (
-          <div
-            className="battle-header-types"
-            aria-label={`${pokemon.name}のタイプ`}
-          >
-            {pokemon.types.map((type) => (
-              <span
-                className="battle-header-type-chip"
-                key={`${pokemon.name}-${type}`}
-              >
-                {type}
-              </span>
-            ))}
-          </div>
-        )}
-        <div className="battle-header-hp" aria-hidden="true">
-          <span />
-        </div>
       </div>
     </div>
   );
@@ -2036,63 +2011,57 @@ function BattleHeader() {
   }
 
   return (
-    <header
-      className="site-header battle-header"
-      style={
-        {
-          "--battle-header-bg": `url("${HEADER_STADIUM_BG_URL}")`,
-        } as React.CSSProperties
-      }
-    >
-      <div className="battle-header-scanline" aria-hidden="true" />
-      <div
-        className="battle-header-corner battle-header-corner--tl"
-        aria-hidden="true"
-      />
-      <div
-        className="battle-header-corner battle-header-corner--tr"
-        aria-hidden="true"
-      />
-      <div
-        className="battle-header-corner battle-header-corner--bl"
-        aria-hidden="true"
-      />
-      <div
-        className="battle-header-corner battle-header-corner--br"
-        aria-hidden="true"
-      />
+    <div className="battle-header-section">
+      <header
+        className="site-header battle-header"
+        style={
+          {
+            "--battle-header-bg": `url("${HEADER_STADIUM_BG_URL}")`,
+          } as React.CSSProperties
+        }
+      >
+        <div className="battle-header-scanline" aria-hidden="true" />
 
-      <div className="battle-header-copy">
-        <div className="battle-header-lamps" aria-hidden="true">
-          <span />
-          <span />
-          <span />
-        </div>
-        <div className="battle-header-text">
-          <h1>ポケモンバトルツール</h1>
+        <div className="battle-header-copy">
+          <img
+            className="battle-header-title-image"
+            src={HEADER_TITLE_URL}
+            alt="ポケモンバトルツール"
+            draggable={false}
+          />
           <p>相手の選出を予測して、おすすめの3匹を確認できます。</p>
+        </div>
+
+        <div
+          className="battle-header-arena"
+          aria-label="ランダムに選ばれた2匹のポケモンの対戦表示"
+        >
+          <BattleHeaderPokemon pokemon={pokemon[0]} side="left" />
+          <div className="battle-header-vs" aria-label="対戦">
+            VS
+          </div>
+          <BattleHeaderPokemon pokemon={pokemon[1]} side="right" />
+        </div>
+      </header>
+
+      <div
+        className="battle-header-shuffle-panel"
+        aria-label="ヘッダーのポケモンを変更"
+      >
+        <div className="battle-header-shuffle-copy">
+          <strong>ヘッダーのポケモンを変更</strong>
+          <span>表示中の2匹をランダムで入れ替える</span>
         </div>
         <button
           type="button"
           className="battle-header-shuffle"
           onClick={shuffleHeaderPokemon}
-          aria-label="ヘッダーのポケモンを入れ替える"
+          aria-label="ヘッダーに表示しているポケモンを入れ替える"
         >
           入れ替え
         </button>
       </div>
-
-      <div
-        className="battle-header-arena"
-        aria-label="ランダムに選ばれた2匹のポケモンの対戦表示"
-      >
-        <BattleHeaderPokemon pokemon={pokemon[0]} side="left" />
-        <div className="battle-header-vs" aria-label="対戦">
-          VS
-        </div>
-        <BattleHeaderPokemon pokemon={pokemon[1]} side="right" />
-      </div>
-    </header>
+    </div>
   );
 }
 
