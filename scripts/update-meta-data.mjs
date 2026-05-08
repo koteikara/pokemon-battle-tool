@@ -4,7 +4,8 @@ import path from "node:path";
 import process from "node:process";
 
 const DEFAULT_SOURCE_URLS = [
-  "https://pokedb.org/data-export/all.json",
+  "https://sv.pokedb.tokyo/opendata/s38_single_ranked_teams.json",
+  "https://sv.pokedb.tokyo/opendata/s38_double_ranked_teams.json",
 ];
 
 const OUTPUT_PATH = "artifacts/pokemon-battle-tool/public/data/meta.json";
@@ -48,7 +49,7 @@ function compactUsageList(value, total = 0) {
   return asArray(value)
     .map((entry) => {
       if (typeof entry === "string") return { name: entry, count: 0, rate: 0 };
-      const name = pickString(entry, ["name", "label", "item", "teraType", "type", "pokemon", "partner"]);
+      const name = pickString(entry, ["name", "label", "item", "teraType", "type", "terastal", "pokemon", "partner"]);
       const count = pickNumber(entry, ["count", "usageCount", "uses", "value"], 0);
       const rawRate = pickNumber(entry, ["rate", "usageRate", "percent", "percentage"], 0);
       const rate = rawRate || (total > 0 && count > 0 ? (count / total) * 100 : 0);
@@ -68,7 +69,7 @@ function normalizePokemonEntry(entry) {
     name,
     usageCount,
     items: compactUsageList(entry.items ?? entry.itemStats ?? entry.heldItems ?? entry.holdItems, usageCount),
-    teraTypes: compactUsageList(entry.teraTypes ?? entry.tera_types ?? entry.terastalTypes ?? entry.tera, usageCount),
+    teraTypes: compactUsageList(entry.teraTypes ?? entry.tera_types ?? entry.terastalTypes ?? entry.tera ?? entry.terastal, usageCount),
     partners: compactUsageList(entry.partners ?? entry.partnerStats ?? entry.teammates ?? entry.with, usageCount),
   };
 }
@@ -90,8 +91,35 @@ function normalizeTeamPattern(record) {
   return {
     members,
     rank: pickNumber(record, ["rank", "placement", "order"], 0),
-    rating: pickNumber(record, ["rating", "rate", "score"], 0),
+    rating: pickNumber(record, ["rating", "rating_value", "rate", "score"], 0),
   };
+}
+
+function recordRawCollectionStats(data) {
+  if (Array.isArray(data)) return { topLevelType: "array", topLevelCount: data.length };
+  if (!data || typeof data !== "object") return { topLevelType: typeof data, topLevelCount: 0 };
+
+  const stats = { topLevelType: "object", topLevelCount: Object.keys(data).length };
+  for (const key of ["pokemon", "pokemons", "pokemonStats", "usage", "records", "data", "teamPatterns", "teams", "rankings", "parties", "constructions"]) {
+    if (data[key] !== undefined) stats[key] = asArray(data[key]).length;
+  }
+  return stats;
+}
+
+function logJsonStructure(data) {
+  if (Array.isArray(data)) {
+    console.log("Fetched array length:");
+    console.log(data.length);
+    return;
+  }
+
+  if (data && typeof data === "object") {
+    console.log("Fetched JSON keys:");
+    console.log(JSON.stringify(Object.keys(data)));
+    return;
+  }
+
+  console.log(`Fetched JSON primitive type: ${typeof data}`);
 }
 
 function detectCollections(data) {
@@ -136,6 +164,69 @@ function detectCollections(data) {
   return { pokemonEntries, teamEntries };
 }
 
+function incrementUsage(map, name, usage) {
+  if (!name) return;
+  const current = map.get(name) ?? { count: 0 };
+  current.count += usage;
+  map.set(name, current);
+}
+
+function usageMapToList(map, total) {
+  return [...map.entries()]
+    .map(([name, { count }]) => ({ name, count, rate: percent(total > 0 ? (count / total) * 100 : 0) }))
+    .sort((a, b) => (b.count - a.count) || a.name.localeCompare(b.name, "ja"))
+    .slice(0, MAX_LIST_ITEMS);
+}
+
+function addPokemonUsage(target, name, { item = "", teraType = "", partners = [] } = {}) {
+  if (!name) return;
+  const current = target[name] ?? {
+    usageCount: 0,
+    itemUsage: new Map(),
+    teraUsage: new Map(),
+    partnerUsage: new Map(),
+  };
+
+  current.usageCount += 1;
+  incrementUsage(current.itemUsage, item, 1);
+  incrementUsage(current.teraUsage, teraType, 1);
+  for (const partner of partners) incrementUsage(current.partnerUsage, partner, 1);
+  target[name] = current;
+}
+
+function aggregatePokemonFromTeams(teamEntries) {
+  const aggregated = {};
+
+  for (const teamEntry of teamEntries) {
+    const members = asArray(teamEntry?.team ?? teamEntry?.members ?? teamEntry?.pokemon ?? teamEntry?.pokemons ?? teamEntry?.party)
+      .map((member) => {
+        if (typeof member === "string") return { name: member.trim(), item: "", teraType: "" };
+        return {
+          name: pickString(member, ["name", "pokemon", "pokemonName", "species", "ja", "jaName", "japaneseName"]),
+          item: pickString(member, ["item", "heldItem", "holdItem"]),
+          teraType: pickString(member, ["terastal", "teraType", "type", "tera"]),
+        };
+      })
+      .filter((member) => member.name);
+
+    const names = members.map((member) => member.name);
+    for (const member of members) {
+      addPokemonUsage(aggregated, member.name, {
+        item: member.item,
+        teraType: member.teraType,
+        partners: names.filter((name) => name !== member.name),
+      });
+    }
+  }
+
+  return Object.fromEntries(Object.entries(aggregated).map(([name, entry]) => [name, {
+    usageCount: entry.usageCount,
+    items: usageMapToList(entry.itemUsage, entry.usageCount),
+    teraTypes: usageMapToList(entry.teraUsage, entry.usageCount),
+    partners: usageMapToList(entry.partnerUsage, entry.usageCount),
+  }]));
+}
+
 function mergePokemon(target, entry) {
   const current = target[entry.name] ?? { usageCount: 0, items: [], teraTypes: [], partners: [] };
   target[entry.name] = {
@@ -158,7 +249,7 @@ function normalizeMeta(rawData, sourceUrl) {
   }
 
   const { pokemonEntries, teamEntries } = detectCollections(rawData);
-  const pokemon = {};
+  const pokemon = aggregatePokemonFromTeams(teamEntries);
   for (const entry of pokemonEntries.map(normalizePokemonEntry).filter(Boolean)) {
     mergePokemon(pokemon, entry);
   }
@@ -178,24 +269,61 @@ function normalizeMeta(rawData, sourceUrl) {
   };
 }
 
+function validateSourceUrl(url) {
+  let parsedUrl;
+  try {
+    parsedUrl = new URL(url);
+  } catch {
+    throw new Error(`invalid URL: ${url}`);
+  }
+
+  if (parsedUrl.pathname.endsWith("/guide/opendata")) {
+    throw new Error(`not a JSON URL: ${url}. Use a public JSON URL such as https://sv.pokedb.tokyo/opendata/s38_single_ranked_teams.json`);
+  }
+
+  if (!parsedUrl.pathname.endsWith(".json")) {
+    throw new Error(`not a JSON URL: ${url}`);
+  }
+}
+
 async function fetchJson(url) {
+  validateSourceUrl(url);
+  console.log("Fetching:");
+  console.log(url);
+
   const response = await fetch(url, {
     headers: {
       accept: "application/json",
       "user-agent": "pokemon-battle-tool-meta-updater/1.0 (+https://github.com/)",
     },
   });
-  if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+
+  if (!response.ok) {
+    console.log("Fetch failed:");
+    console.log(`${url} status: ${response.status}`);
+    const error = new Error(`fetch failed: ${url} status ${response.status}`);
+    error.url = url;
+    throw error;
+  }
+
+  console.log("Fetch status:");
+  console.log(`${response.status} ${response.statusText}`);
+
+  const contentType = response.headers.get("content-type") ?? "";
+  if (contentType && !contentType.includes("json")) {
+    console.warn(`Fetch warning: ${url} content-type is ${contentType}`);
+  }
+
   return response.json();
 }
 
-function createFallbackMeta() {
+function createFallbackMeta(errorMessage = "fetch failed or no source data") {
   return {
     updatedAt: new Date().toISOString(),
     source: "pokedb",
     pokemon: {},
     teamPatterns: [],
-    error: "fetch failed or no source data",
+    error: errorMessage,
   };
 }
 
@@ -215,8 +343,8 @@ async function writeMeta(meta) {
 
   const pokemonCount = Object.keys(meta.pokemon ?? {}).length;
   const teamPatternsCount = asArray(meta.teamPatterns).length;
-  console.log(`Pokemon count: ${pokemonCount}`);
-  console.log(`Team patterns count: ${teamPatternsCount}`);
+  console.log(`pokemon count: ${pokemonCount}`);
+  console.log(`teamPatterns count: ${teamPatternsCount}`);
 
   const tempPath = `${OUTPUT_PATH}.tmp`;
   await writeFile(tempPath, `${JSON.stringify(meta)}\n`, "utf8");
@@ -225,16 +353,25 @@ async function writeMeta(meta) {
 }
 
 async function main() {
+  console.log("Using PokeDB URLs:");
+  for (const sourceUrl of POKEDB_SOURCE_URLS) console.log(`- ${sourceUrl}`);
+
   let lastError;
   for (const sourceUrl of POKEDB_SOURCE_URLS) {
     try {
-      console.log(`Fetching PokeDB data: ${sourceUrl}`);
       const rawData = await fetchJson(sourceUrl);
+      logJsonStructure(rawData);
+      const rawStats = recordRawCollectionStats(rawData);
+      console.log("Raw data counts:");
+      console.log(JSON.stringify(rawStats));
+
       const meta = normalizeMeta(rawData, sourceUrl);
       const pokemonCount = Object.keys(meta.pokemon).length;
-      console.log(`Extracted ${pokemonCount} pokemon rows and ${meta.teamPatterns.length} team patterns.`);
-      if (pokemonCount === 0 && meta.teamPatterns.length === 0) {
-        throw new Error("Fetched JSON did not contain usable usage data.");
+      const teamPatternsCount = meta.teamPatterns.length;
+      console.log(`Generated meta pokemon count: ${pokemonCount}`);
+      console.log(`Generated meta teamPatterns count: ${teamPatternsCount}`);
+      if (pokemonCount === 0 && teamPatternsCount === 0) {
+        throw new Error(`no usable usage data: ${sourceUrl}`);
       }
 
       await writeMeta(meta);
@@ -245,8 +382,9 @@ async function main() {
     }
   }
 
-  console.warn("No PokeDB source could be fetched; writing fallback meta.json.");
-  await writeMeta(createFallbackMeta());
+  const fallbackError = lastError?.message ?? "fetch failed or no source data";
+  console.warn(`No PokeDB source could be fetched; writing fallback meta.json. ${fallbackError}`);
+  await writeMeta(createFallbackMeta(fallbackError));
 }
 
 main().catch((error) => {
