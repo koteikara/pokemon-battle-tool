@@ -1488,30 +1488,20 @@ button.result-tag {
 .battle-header-pokemon--right .battle-header-placeholder {
   transform: none;
 }
-.battle-header-vs {
+.battle-vs-badge {
+  display: block;
+  width: clamp(62px, 10vw, 100px);
+  max-width: 18vw;
+  height: auto;
   align-self: center;
-  display: grid;
-  place-items: center;
-  width: clamp(54px, 9vw, 86px);
-  aspect-ratio: 1;
-  margin-bottom: clamp(40px, 5.6vw, 66px);
-  border: 4px solid var(--color-border-strong);
-  border-radius: 30% 70% 34% 66% / 62% 32% 68% 38%;
-  background:
-    radial-gradient(circle at 35% 30%, #fff7d6 0 10%, transparent 11%),
-    linear-gradient(135deg, #f97316, #ef4444 56%, #bc0100);
-  color: #fff;
-  font-family: var(--font-game);
-  font-size: clamp(1.18rem, 3.6vw, 1.82rem);
-  font-weight: 900;
-  letter-spacing: 0.03em;
-  text-shadow: 2px 2px 0 var(--color-border-strong);
-  box-shadow:
-    0 0 0 4px rgba(253, 212, 0, 0.75),
-    5px 5px 0 var(--color-border-strong),
-    0 0 22px rgba(249, 115, 22, 0.72);
+  justify-self: center;
+  margin-bottom: clamp(44px, 5.8vw, 70px);
+  object-fit: contain;
+  filter: drop-shadow(5px 5px 0 var(--color-border-strong))
+    drop-shadow(0 0 18px rgba(249, 115, 22, 0.76));
   animation: battleVsPulse 3.6s ease-in-out infinite;
-  z-index: 2;
+  z-index: 4;
+  -webkit-user-drag: none;
 }
 .battle-header-shuffle-panel {
   width: min(100%, 720px);
@@ -1614,7 +1604,7 @@ button.result-tag {
   .battle-header-scanline,
   .battle-header-pokemon--left,
   .battle-header-pokemon--right,
-  .battle-header-vs {
+  .battle-vs-badge {
     animation: none;
   }
 }
@@ -1674,14 +1664,12 @@ button.result-tag {
     margin-bottom: 6px;
     border-width: 2px;
   }
-  .battle-header-vs {
-    width: clamp(44px, 12vw, 54px);
+  .battle-vs-badge {
+    width: clamp(48px, 13vw, 62px);
+    max-width: 16vw;
     margin-bottom: 44px;
-    border-width: 3px;
-    box-shadow:
-      0 0 0 3px rgba(253, 212, 0, 0.72),
-      3px 3px 0 var(--color-border-strong),
-      0 0 14px rgba(249, 115, 22, 0.68);
+    filter: drop-shadow(3px 3px 0 var(--color-border-strong))
+      drop-shadow(0 0 14px rgba(249, 115, 22, 0.68));
   }
   .battle-header-shuffle-panel {
     align-items: center;
@@ -1724,10 +1712,10 @@ button.result-tag {
   .battle-header-sprite {
     max-height: 110px;
   }
-  .battle-header-vs {
-    width: 42px;
+  .battle-vs-badge {
+    width: 44px;
+    max-width: 15vw;
     margin-bottom: 40px;
-    font-size: 1rem;
   }
   .battle-header-shuffle-panel {
     gap: 6px;
