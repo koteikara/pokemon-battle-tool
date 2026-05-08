@@ -321,7 +321,14 @@ function toKatakana(str: string): string {
 
 // 正規化して比較（ひらがな・カタカナ両対応）
 function normalize(str: string): string {
-  return toKatakana(str.trim()).toLowerCase();
+  return toKatakana(str)
+    .trim()
+    .toLowerCase()
+    .replace(/[\s　]/g, "")
+    .replace(/[（）]/g, (ch) => (ch === "（" ? "(" : ")"))
+    .replace(/[：]/g, ":")
+    .replace(/オス/g, "♂")
+    .replace(/メス/g, "♀");
 }
 
 function getOptionSuggestions(
@@ -2291,7 +2298,7 @@ function PokemonApiDataSummary({ data }: { data: PokemonApiData }) {
   );
 }
 
-type PokemonPortraitSize = "hero" | "saved" | "result";
+type PokemonPortraitSize = "hero" | "saved" | "result" | "slot" | "chip";
 
 function PokemonPortrait({
   name,
@@ -3782,6 +3789,131 @@ function CollapsibleReasonNote({
   );
 }
 
+
+const FALLBACK_POPULAR_POKEMON = [
+  "ガブリアス",
+  "サーナイト",
+  "ドヒドイデ",
+  "カバルドン",
+  "アシレーヌ",
+  "ドドゲザン",
+  "ミミッキュ",
+  "カイリュー",
+  "ゲンガー",
+  "ブリジュラス",
+  "アーマーガア",
+  "ハッサム",
+];
+
+const FALLBACK_POPULAR_TAGS: Record<string, string> = {
+  ガブリアス: "高採用",
+  サーナイト: "上位常連",
+  ドヒドイデ: "受け寄り",
+  カバルドン: "起点作成",
+  アシレーヌ: "高採用",
+  ドドゲザン: "対面性能",
+  ミミッキュ: "対面性能",
+  カイリュー: "上位常連",
+  ゲンガー: "高速",
+  ブリジュラス: "高採用",
+  アーマーガア: "受け寄り",
+  ハッサム: "対面性能",
+};
+
+type PopularPokemonCandidate = {
+  name: string;
+  trend: string;
+  usageCount?: number;
+  fromMeta: boolean;
+};
+
+type SpeechRecognitionResultItem = {
+  transcript: string;
+};
+
+type SpeechRecognitionResultListItem = {
+  0: SpeechRecognitionResultItem;
+};
+
+type SpeechRecognitionEventLike = {
+  results: ArrayLike<SpeechRecognitionResultListItem>;
+};
+
+type SpeechRecognitionLike = {
+  lang: string;
+  interimResults: boolean;
+  maxAlternatives: number;
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
+  onerror: (() => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+};
+
+type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
+
+function getSpeechRecognitionConstructor(): SpeechRecognitionConstructor | null {
+  const speechWindow = window as Window & {
+    SpeechRecognition?: SpeechRecognitionConstructor;
+    webkitSpeechRecognition?: SpeechRecognitionConstructor;
+  };
+  return speechWindow.SpeechRecognition ?? speechWindow.webkitSpeechRecognition ?? null;
+}
+
+function splitSpokenPokemon(text: string): string[] {
+  return text
+    .split(/[、,，\n\r\t ]+/)
+    .map((name) => name.trim())
+    .filter(Boolean)
+    .slice(0, 6);
+}
+
+function getCanonicalPokemonName(name: string): string {
+  const normalizedName = normalize(name);
+  return (
+    ALLOWED_POKEMON.find((pokemon) => normalize(pokemon) === normalizedName) ??
+    name.trim()
+  );
+}
+
+function buildPopularPokemonCandidates(
+  metaData: MetaData | null,
+  expanded: boolean,
+): PopularPokemonCandidate[] {
+  const limit = expanded ? 18 : 12;
+  const metaCandidates = metaData
+    ? Object.entries(metaData.pokemon)
+        .filter(([name]) => isAllowed(name) && getPokemonApiName(name))
+        .sort(([, a], [, b]) => (b.usageCount ?? 0) - (a.usageCount ?? 0))
+        .slice(0, limit)
+        .map(([name, entry], index) => ({
+          name,
+          usageCount: entry.usageCount,
+          trend:
+            index < 4
+              ? "上位常連"
+              : (entry.usageCount ?? 0) >= 20
+                ? "高採用"
+                : (POKEMON_META[name]?.roles?.[0] ?? FALLBACK_POPULAR_TAGS[name] ?? "採用傾向"),
+          fromMeta: true,
+        }))
+    : [];
+
+  if (metaCandidates.length > 0) return metaCandidates;
+
+  return FALLBACK_POPULAR_POKEMON.slice(0, limit).map((name) => ({
+    name,
+    trend: FALLBACK_POPULAR_TAGS[name] ?? "候補",
+    fromMeta: false,
+  }));
+}
+
+function getOpponentStatus(name: string): { label: string; tone: "empty" | "ok" | "warn" | "info" } {
+  if (!name.trim()) return { label: "＋ 追加", tone: "empty" };
+  if (isAllowed(name)) return { label: "使用可能", tone: "ok" };
+  if (getPokemonApiName(name)) return { label: "データ不足", tone: "info" };
+  return { label: "未対応", tone: "warn" };
+}
+
 function BattleScreen({
   opponent,
   setOpponent,
@@ -3799,7 +3931,18 @@ function BattleScreen({
     useState<Record<string, boolean>>({});
   const predictions = predictOpponent(opponent, publicMetaData);
   const [, setPokeApiCacheVersion] = useState(0);
+  const [opponentMessage, setOpponentMessage] = useState("");
+  const [listeningSlot, setListeningSlot] = useState<number | "bulk" | null>(null);
+  const [showMorePopular, setShowMorePopular] = useState(false);
   const validCount = opponent.filter((s) => s.trim() && isAllowed(s)).length;
+  const filledCount = opponent.filter((s) => s.trim()).length;
+  const popularCandidates = buildPopularPokemonCandidates(
+    publicMetaData,
+    showMorePopular,
+  );
+  const speechRecognitionSupported = Boolean(
+    typeof window !== "undefined" && getSpeechRecognitionConstructor(),
+  );
 
   useEffect(() => {
     let active = true;
@@ -3817,6 +3960,8 @@ function BattleScreen({
       new Set([
         ...predictions.map((prediction) => prediction.name),
         ...myTeam.map((pokemon) => pokemon.name),
+        ...opponent.filter(Boolean),
+        ...popularCandidates.map((candidate) => candidate.name),
       ]),
     ).filter((name) => {
       const cached = getCachedPokemonApiData(name);
@@ -3840,6 +3985,8 @@ function BattleScreen({
   }, [
     predictions.map((prediction) => prediction.name).join("|"),
     myTeam.map((pokemon) => pokemon.name).join("|"),
+    opponent.join("|"),
+    popularCandidates.map((candidate) => candidate.name).join("|"),
   ]);
 
   const recommendations = recommendPlayerSelection(
@@ -3848,10 +3995,101 @@ function BattleScreen({
     publicMetaData,
   );
 
+  function showOpponentMessage(message: string) {
+    setOpponentMessage(message);
+    window.setTimeout(() => setOpponentMessage(""), 2200);
+  }
+
   function update(i: number, val: string) {
     const next = [...opponent];
     next[i] = val;
     setOpponent(next);
+  }
+
+  function clearSlot(i: number) {
+    update(i, "");
+    showOpponentMessage(`${i + 1}番を消しました`);
+  }
+
+  function moveSlot(i: number, direction: -1 | 1) {
+    const target = i + direction;
+    if (target < 0 || target >= opponent.length) return;
+    const next = [...opponent];
+    [next[i], next[target]] = [next[target], next[i]];
+    setOpponent(next);
+  }
+
+  function clearAllOpponents() {
+    if (!opponent.some((name) => name.trim())) return;
+    if (window.confirm("相手のポケモンをすべて消しますか？")) {
+      setOpponent(["", "", "", "", "", ""]);
+      showOpponentMessage("すべて消しました");
+    }
+  }
+
+  function addPopularPokemon(name: string) {
+    const canonicalName = getCanonicalPokemonName(name);
+    if (opponent.some((slot) => normalize(slot) === normalize(canonicalName))) {
+      showOpponentMessage("すでに登録済みです");
+      return;
+    }
+    const emptyIndex = opponent.findIndex((slot) => !slot.trim());
+    if (emptyIndex === -1) {
+      showOpponentMessage("6匹まで登録済みです");
+      return;
+    }
+    const next = [...opponent];
+    next[emptyIndex] = canonicalName;
+    setOpponent(next);
+    showOpponentMessage(`${canonicalName}を${emptyIndex + 1}番に追加しました`);
+  }
+
+  function applyBulkSpeechText(text: string) {
+    const names = splitSpokenPokemon(text).map(getCanonicalPokemonName);
+    if (names.length === 0) {
+      showOpponentMessage("聞き取れませんでした");
+      return;
+    }
+    const next = ["", "", "", "", "", ""];
+    names.forEach((name, index) => {
+      next[index] = name;
+    });
+    setOpponent(next);
+    showOpponentMessage(`${names.length}匹を入力しました`);
+  }
+
+  function startSpeechInput(slotIndex?: number) {
+    const SpeechRecognition = getSpeechRecognitionConstructor();
+
+    if (!SpeechRecognition) {
+      const fallbackText = slotIndex === undefined
+        ? window.prompt("6匹を、区切って入力してください")
+        : window.prompt(`${slotIndex + 1}番に入れるポケモン名`);
+      if (!fallbackText) return;
+      if (slotIndex === undefined) applyBulkSpeechText(fallbackText);
+      else update(slotIndex, getCanonicalPokemonName(fallbackText));
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = "ja-JP";
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+    setListeningSlot(slotIndex ?? "bulk");
+    recognition.onresult = (event) => {
+      const transcript = Array.from(event.results)
+        .map((result) => result[0]?.transcript ?? "")
+        .join(" ")
+        .trim();
+      if (slotIndex === undefined) applyBulkSpeechText(transcript);
+      else update(slotIndex, getCanonicalPokemonName(transcript));
+    };
+    recognition.onerror = () => {
+      showOpponentMessage("音声入力が使えませんでした");
+      setListeningSlot(null);
+    };
+    recognition.onend = () => setListeningSlot(null);
+    recognition.start();
   }
 
   function togglePredictionNote(key: string) {
@@ -3871,44 +4109,156 @@ function BattleScreen({
   return (
     <div className="screen">
       {/* ── 相手のパーティ入力 ──────────────────────────────────────── */}
-      <div className="card">
-        <div className="card-title">相手のポケモン入力（最大6匹）</div>
-        {opponent.map((name, i) => (
-          <div
-            className="field"
-            key={i}
-            style={{ marginBottom: i < 5 ? 14 : 0 }}
-          >
-            <div
-              className="opponent-slot"
-              style={{ alignItems: "flex-start", gap: 10 }}
-            >
-              <div
-                className="slot-num"
-                style={{ marginTop: 12, flexShrink: 0 }}
-              >
-                {i + 1}
-              </div>
-              <div style={{ flex: 1 }}>
-                <PokemonInput
-                  value={name}
-                  onChange={(val) => update(i, val)}
-                  placeholder={`ポケモン ${i + 1}`}
-                  testId={`input-opponent-${i + 1}`}
-                />
-              </div>
-            </div>
+      <div className="card opponent-team-card">
+        <div className="opponent-input-header">
+          <div>
+            <div className="card-title">相手のポケモン入力</div>
+            <div className="opponent-save-note">入力内容は自動で保存されます</div>
           </div>
-        ))}
-        <p
-          style={{
-            fontSize: 12,
-            color: "#6B7280",
-            textAlign: "center",
-            marginTop: 12,
-          }}
-        >
-          入力内容は自動で保存されます
+          <div className="opponent-count-badge" aria-label={`入力済み ${filledCount} / 6`}>
+            {filledCount} / 6
+          </div>
+        </div>
+
+        <div className="opponent-toolbar">
+          <button
+            type="button"
+            className="retro-action-button retro-action-button--primary"
+            onClick={() => startSpeechInput()}
+            aria-label="まとめて音声入力"
+          >
+            {listeningSlot === "bulk" ? "聞いています…" : "🎤 まとめて音声入力"}
+          </button>
+          <button
+            type="button"
+            className="retro-action-button"
+            onClick={clearAllOpponents}
+            disabled={filledCount === 0}
+          >
+            すべてクリア
+          </button>
+        </div>
+
+        {opponentMessage && (
+          <div className="opponent-message" role="status">
+            {opponentMessage}
+          </div>
+        )}
+
+        <div className="opponent-slot-list">
+          {opponent.map((name, i) => {
+            const status = getOpponentStatus(name);
+            const displayName = name.trim();
+            return (
+              <div
+                className={`opponent-team-slot${displayName ? " opponent-team-slot--filled" : ""}`}
+                key={i}
+              >
+                <div className="opponent-slot-number">{i + 1}</div>
+                <PokemonPortrait
+                  name={displayName}
+                  imageUrl={getPokemonImageUrl(displayName)}
+                  size="slot"
+                />
+                <div className="opponent-slot-main">
+                  <PokemonInput
+                    value={name}
+                    onChange={(val) => update(i, val)}
+                    placeholder="＋ ポケモンを追加"
+                    testId={`input-opponent-${i + 1}`}
+                  />
+                  <span className={`opponent-status-badge opponent-status-badge--${status.tone}`}>
+                    {status.label}
+                  </span>
+                </div>
+                <div className="opponent-slot-actions" aria-label={`${i + 1}番の操作`}>
+                  <button
+                    type="button"
+                    className="slot-icon-button"
+                    onClick={() => startSpeechInput(i)}
+                    aria-label={`${i + 1}番を音声入力`}
+                  >
+                    {listeningSlot === i ? "…" : "🎤"}
+                  </button>
+                  <button
+                    type="button"
+                    className="slot-icon-button"
+                    onClick={() => moveSlot(i, -1)}
+                    disabled={i === 0}
+                    aria-label={`${i + 1}番を上へ`}
+                  >
+                    ↑
+                  </button>
+                  <button
+                    type="button"
+                    className="slot-icon-button"
+                    onClick={() => moveSlot(i, 1)}
+                    disabled={i === opponent.length - 1}
+                    aria-label={`${i + 1}番を下へ`}
+                  >
+                    ↓
+                  </button>
+                  <button
+                    type="button"
+                    className="slot-icon-button slot-icon-button--delete"
+                    onClick={() => clearSlot(i)}
+                    disabled={!displayName}
+                    aria-label={`${i + 1}番を削除`}
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="popular-pokemon-section">
+          <div className="popular-pokemon-heading-row">
+            <div>
+              <div className="popular-pokemon-title">よく使われるポケモン</div>
+              <div className="popular-pokemon-help">タップすると空いている枠に追加します</div>
+            </div>
+            <span className="popular-pokemon-source">
+              {popularCandidates[0]?.fromMeta ? "meta順" : "固定候補"}
+            </span>
+          </div>
+          <div className="popular-pokemon-grid">
+            {popularCandidates.map((candidate) => (
+              <button
+                type="button"
+                className="popular-pokemon-chip"
+                key={candidate.name}
+                onClick={() => addPopularPokemon(candidate.name)}
+              >
+                <PokemonPortrait
+                  name={candidate.name}
+                  imageUrl={getPokemonImageUrl(candidate.name)}
+                  size="chip"
+                />
+                <span className="popular-pokemon-chip-text">
+                  <strong>{candidate.name}</strong>
+                  <small>
+                    {candidate.trend}
+                    {candidate.usageCount ? `・${candidate.usageCount}` : ""}
+                  </small>
+                </span>
+              </button>
+            ))}
+          </div>
+          <button
+            type="button"
+            className="popular-more-button"
+            onClick={() => setShowMorePopular((prev) => !prev)}
+          >
+            {showMorePopular ? "少なく見る" : "もっと見る"}
+          </button>
+        </div>
+
+        <p className="speech-fallback-note">
+          {speechRecognitionSupported
+            ? "音声入力は日本語で話してください。"
+            : "音声入力が使えない場合は、入力欄をタップしてキーボードのマイクを使ってください。"}
         </p>
       </div>
 
