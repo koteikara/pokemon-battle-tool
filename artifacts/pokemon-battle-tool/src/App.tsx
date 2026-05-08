@@ -25,7 +25,7 @@ type Screen = "register" | "battle";
 type BottomView = "home" | "saved" | "guide";
 
 const HEADER_STADIUM_BG_URL = `${import.meta.env.BASE_URL}header-stadium-bg.png`;
-const HEADER_TITLE_URL = `${import.meta.env.BASE_URL}header-title-battle.png`;
+const HEADER_TITLE_URL = `${import.meta.env.BASE_URL}header-title-battle.svg`;
 const BATTLE_VS_BADGE_URL = `${import.meta.env.BASE_URL}battle-vs-badge.png`;
 
 // モバイルSafari向けの通常Webサイト（PWA/ネイティブ前提ではない）
