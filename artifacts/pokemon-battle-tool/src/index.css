@@ -1297,13 +1297,13 @@ button.result-tag {
 .battle-header {
   position: relative;
   isolation: isolate;
-  min-height: clamp(338px, 46vw, 468px);
+  min-height: clamp(350px, 47vw, 480px);
   margin: 0;
   padding: clamp(12px, 2.4vw, 20px);
   display: grid;
   /* Keep the battle header independent from the legacy two-column site header. */
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: auto minmax(198px, 1fr);
+  grid-template-rows: auto minmax(210px, 1fr);
   align-items: stretch;
   justify-items: stretch;
   gap: clamp(6px, 1.5vw, 12px);
@@ -1314,51 +1314,30 @@ button.result-tag {
   background:
     linear-gradient(
       180deg,
-      rgba(5, 8, 30, 0.7) 0 28%,
-      rgba(8, 12, 36, 0.18) 52%,
-      rgba(8, 12, 36, 0.3) 100%
+      rgba(5, 8, 30, 0.62) 0 30%,
+      rgba(8, 12, 36, 0.16) 54%,
+      rgba(8, 12, 36, 0.34) 100%
     ),
     var(--battle-header-bg) center / cover no-repeat,
     linear-gradient(135deg, #171149, #075274);
   box-shadow: var(--shadow-hard-red);
 }
-.battle-header::before,
 .battle-header::after {
   content: "";
   position: absolute;
   inset: 0;
   pointer-events: none;
 }
-.battle-header::before {
-  z-index: -1;
-  background:
-    radial-gradient(
-      circle at 50% 65%,
-      rgba(45, 243, 255, 0.3),
-      transparent 31%
-    ),
-    linear-gradient(
-      110deg,
-      transparent 20%,
-      rgba(255, 255, 255, 0.12) 44%,
-      transparent 62%
-    );
-  mix-blend-mode: screen;
-  animation: battleHeaderShimmer 6s ease-in-out infinite;
-}
 .battle-header::after {
   z-index: 0;
-  background:
-    linear-gradient(rgba(255, 255, 255, 0.08) 50%, rgba(17, 24, 39, 0.08) 50%) 0
-      0 / 100% 6px,
-    linear-gradient(
-      180deg,
-      rgba(4, 8, 23, 0.35),
-      transparent 36%,
-      rgba(255, 245, 158, 0.08) 74%,
-      rgba(4, 8, 23, 0.18)
-    );
-  opacity: 0.32;
+  background: linear-gradient(
+    180deg,
+    rgba(4, 8, 23, 0.3),
+    transparent 36%,
+    rgba(255, 245, 158, 0.08) 74%,
+    rgba(4, 8, 23, 0.2)
+  );
+  opacity: 0.36;
 }
 .battle-header > * {
   position: relative;
@@ -1381,7 +1360,7 @@ button.result-tag {
 .battle-header-copy {
   grid-column: 1;
   grid-row: 1;
-  width: min(100%, 760px);
+  width: min(100%, 740px);
   justify-self: center;
   display: grid;
   justify-items: center;
@@ -1399,8 +1378,8 @@ button.result-tag {
 }
 .battle-header-title-image {
   display: block;
-  width: min(100%, 560px);
-  max-height: clamp(70px, 16vw, 124px);
+  width: min(100%, 540px);
+  max-height: clamp(66px, 15vw, 114px);
   object-fit: contain;
   filter: drop-shadow(0 4px 0 rgba(17, 24, 39, 0.92))
     drop-shadow(0 0 10px rgba(253, 212, 0, 0.35));
@@ -1423,7 +1402,7 @@ button.result-tag {
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: end;
   gap: clamp(2px, 1.5vw, 14px);
-  padding: clamp(2px, 0.8vw, 6px) clamp(8px, 2.8vw, 30px) clamp(2px, 0.8vw, 8px);
+  padding: clamp(6px, 1.2vw, 12px) clamp(10px, 3vw, 34px) clamp(2px, 0.8vw, 8px);
 }
 .battle-header-pokemon {
   min-width: 0;
@@ -1436,12 +1415,12 @@ button.result-tag {
 }
 .battle-header-pokemon--left {
   justify-self: start;
-  padding-left: clamp(4px, 4vw, 46px);
+  padding-left: clamp(8px, 5vw, 58px);
   animation: battlePokemonIdleLeft 4.2s ease-in-out infinite;
 }
 .battle-header-pokemon--right {
   justify-self: end;
-  padding-right: clamp(4px, 4vw, 46px);
+  padding-right: clamp(8px, 5vw, 58px);
   animation: battlePokemonIdleRight 5s ease-in-out 0.35s infinite;
 }
 .battle-header-platform {
@@ -1472,14 +1451,14 @@ button.result-tag {
     drop-shadow(0 0 16px rgba(47, 243, 255, 0.22));
 }
 .battle-header-pokemon--left .battle-header-sprite-wrap {
-  width: min(37vw, 220px);
+  width: min(35vw, 210px);
 }
 .battle-header-pokemon--right .battle-header-sprite-wrap {
-  width: min(36vw, 210px);
+  width: min(34vw, 204px);
 }
 .battle-header-sprite {
   width: 100%;
-  max-height: clamp(150px, 28vw, 218px);
+  max-height: clamp(146px, 26vw, 208px);
   object-fit: contain;
   transform-origin: center bottom;
   -webkit-user-drag: none;
@@ -1569,9 +1548,9 @@ button.result-tag {
 }
 .battle-header-shuffle {
   flex: 0 0 auto;
-  min-height: 44px;
-  min-width: 92px;
-  padding: 8px 13px;
+  min-height: 42px;
+  min-width: 88px;
+  padding: 7px 12px;
   border: 3px solid var(--color-border-strong);
   border-radius: var(--radius-button);
   background: linear-gradient(180deg, #fff4a3, var(--color-yellow));
@@ -1622,17 +1601,6 @@ button.result-tag {
     filter: saturate(1.2);
   }
 }
-@keyframes battleHeaderShimmer {
-  0%,
-  100% {
-    opacity: 0.38;
-    transform: translateX(-3%);
-  }
-  50% {
-    opacity: 0.62;
-    transform: translateX(3%);
-  }
-}
 @keyframes battleHeaderGlow {
   0%,
   100% {
@@ -1643,7 +1611,6 @@ button.result-tag {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .battle-header::before,
   .battle-header-scanline,
   .battle-header-pokemon--left,
   .battle-header-pokemon--right,
@@ -1656,8 +1623,8 @@ button.result-tag {
     margin-bottom: 16px;
   }
   .battle-header {
-    min-height: 318px;
-    grid-template-rows: auto minmax(174px, 1fr);
+    min-height: 326px;
+    grid-template-rows: auto minmax(182px, 1fr);
     gap: 6px;
     padding: 10px;
     border-width: 3px;
@@ -1673,8 +1640,8 @@ button.result-tag {
     box-shadow: 3px 3px 0 var(--color-border-strong);
   }
   .battle-header-title-image {
-    width: min(100%, 330px);
-    max-height: clamp(58px, 19vw, 78px);
+    width: min(100%, 320px);
+    max-height: clamp(56px, 18vw, 74px);
   }
   .battle-header-copy p {
     font-size: clamp(0.76rem, 3.35vw, 0.88rem);
@@ -1696,10 +1663,10 @@ button.result-tag {
   .battle-header-sprite-wrap,
   .battle-header-pokemon--left .battle-header-sprite-wrap,
   .battle-header-pokemon--right .battle-header-sprite-wrap {
-    width: min(32vw, 124px);
+    width: min(31vw, 120px);
   }
   .battle-header-sprite {
-    max-height: 126px;
+    max-height: 122px;
   }
   .battle-header-platform {
     width: 92%;
@@ -1731,9 +1698,9 @@ button.result-tag {
     line-height: 1.18;
   }
   .battle-header-shuffle {
-    min-width: 84px;
-    min-height: 44px;
-    padding: 7px 10px;
+    min-width: 80px;
+    min-height: 42px;
+    padding: 6px 9px;
     border-width: 2px;
     box-shadow: 2px 2px 0 var(--color-border-strong);
   }

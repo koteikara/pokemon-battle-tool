@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, type CSSProperties } from "react";
 import { MOVES } from "./lib/moves";
 import { ABILITY_LIST } from "./lib/abilities";
 import {
@@ -2017,7 +2017,7 @@ function BattleHeader() {
         style={
           {
             "--battle-header-bg": `url("${HEADER_STADIUM_BG_URL}")`,
-          } as React.CSSProperties
+          } as CSSProperties
         }
       >
         <div className="battle-header-scanline" aria-hidden="true" />
