@@ -1,4 +1,10 @@
-import { useState, useEffect, useRef, type CSSProperties } from "react";
+import {
+  useState,
+  useEffect,
+  useRef,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 import { MOVES } from "./lib/moves";
 import {
   findMetaPokemon,
@@ -1591,14 +1597,14 @@ function hasAnyText(source: string, patterns: string[]): boolean {
   return patterns.some((pattern) => text.includes(pattern));
 }
 
-
 function hasPositiveBreakdown(
   breakdown: ScoreBreakdown[],
   patterns: string[],
 ): boolean {
   return breakdown.some(
     (part) =>
-      part.points > 0 && patterns.some((pattern) => part.label.includes(pattern)),
+      part.points > 0 &&
+      patterns.some((pattern) => part.label.includes(pattern)),
   );
 }
 
@@ -1632,7 +1638,9 @@ function findAdvantagedOpponents(
     .map((opp) => ({ ...opp, types: getKnownPokemonTypes(opp.name) }))
     .filter((opp) => opp.types.length > 0);
   const typedMoves = moveDetails.filter(
-    (move): move is {
+    (
+      move,
+    ): move is {
       name: string;
       apiData: MoveApiData | null;
       type: PokemonType;
@@ -1658,9 +1666,15 @@ function buildRecommendationStrengths(
 
   if (hasPositiveBreakdown(breakdown, ["高速", "先制技"]) || player.evS >= 24)
     strengths.push("高速アタッカー");
-  if (hasPositiveBreakdown(breakdown, ["物理火力", "物理役"]) || player.evA >= 24)
+  if (
+    hasPositiveBreakdown(breakdown, ["物理火力", "物理役"]) ||
+    player.evA >= 24
+  )
     strengths.push("物理火力");
-  if (hasPositiveBreakdown(breakdown, ["特殊火力", "特殊役"]) || player.evC >= 24)
+  if (
+    hasPositiveBreakdown(breakdown, ["特殊火力", "特殊役"]) ||
+    player.evC >= 24
+  )
     strengths.push("特殊火力");
   if (
     hasPositiveBreakdown(breakdown, ["耐久", "受け"]) ||
@@ -1669,13 +1683,22 @@ function buildRecommendationStrengths(
     player.evD >= 24
   )
     strengths.push("物理耐久");
-  if (hasPositiveBreakdown(breakdown, ["先発", "行動保証"]) || hasAnyText(roleText, ["先発"]))
+  if (
+    hasPositiveBreakdown(breakdown, ["先発", "行動保証"]) ||
+    hasAnyText(roleText, ["先発"])
+  )
     strengths.push("先発向き");
   if (hasPositiveBreakdown(breakdown, ["対策", "対応", "相手予測1位"]))
     strengths.push("対面性能");
-  if (hasPositiveBreakdown(breakdown, ["補助", "サポート"]) || hasAnyText(roleText, ["サポート"]))
+  if (
+    hasPositiveBreakdown(breakdown, ["補助", "サポート"]) ||
+    hasAnyText(roleText, ["サポート"])
+  )
     strengths.push("サポート");
-  if (hasPositiveBreakdown(breakdown, ["詰め"]) || hasAnyText(roleText, ["詰め"]))
+  if (
+    hasPositiveBreakdown(breakdown, ["詰め"]) ||
+    hasAnyText(roleText, ["詰め"])
+  )
     strengths.push("詰め要員");
   if (hasPositiveBreakdown(breakdown, ["耐久", "継戦能力", "受けやすい"]))
     strengths.push("クッション");
@@ -1694,22 +1717,32 @@ function buildRecommendationReason(
   const reasons: string[] = [];
 
   if (hasPositiveBreakdown(breakdown, ["抜群", "等倍以上", "打点"]))
-    reasons.push("相手の予測上位に対してタイプ相性が良く、攻撃を通しやすいです。");
+    reasons.push(
+      "相手の予測上位に対してタイプ相性が良く、攻撃を通しやすいです。",
+    );
   if (hasPositiveBreakdown(breakdown, ["高速", "先制技"]))
-    reasons.push("素早さや先制技で、相手より先に動きやすい点が評価されています。");
+    reasons.push(
+      "素早さや先制技で、相手より先に動きやすい点が評価されています。",
+    );
   if (hasPositiveBreakdown(breakdown, ["火力", "攻撃役", "威力"]))
     reasons.push("攻撃性能が高く、相手に圧力をかけやすいです。");
   if (hasPositiveBreakdown(breakdown, ["耐久", "受けやすい", "継戦能力"]))
     reasons.push("耐久面が安定しており、相手の攻撃を受けやすいです。");
   if (hasPositiveBreakdown(breakdown, ["役", "適性", "補助", "詰め"]))
-    reasons.push("登録された役割タグから、この対戦で使いやすい型と判断されています。");
+    reasons.push(
+      "登録された役割タグから、この対戦で使いやすい型と判断されています。",
+    );
   if (hasPositiveBreakdown(breakdown, ["採用傾向あり"]))
-    reasons.push("公開データ上でも採用傾向があり、実戦で使われやすい型として評価されています。");
+    reasons.push(
+      "公開データ上でも採用傾向があり、実戦で使われやすい型として評価されています。",
+    );
   if (hasPositiveBreakdown(breakdown, ["優先度 高"]))
     reasons.push("登録情報で優先度が高く、選出候補として評価されています。");
 
   if (reasons.length === 0 && advantagedOpponents.length > 0)
-    reasons.push("相手の予測上位3匹に対して通りが良く、安定して戦いやすいです。");
+    reasons.push(
+      "相手の予測上位3匹に対して通りが良く、安定して戦いやすいです。",
+    );
   if (reasons.length === 0)
     reasons.push("登録情報と相手予測をもとにおすすめしています。");
 
@@ -3668,6 +3701,87 @@ function RegisterScreen({
 const RANK_LABELS = ["1位", "2位", "3位"];
 const RANK_COLORS = ["#f5a623", "#a0a0b0", "#c07a3a"];
 
+function CollapsibleReasonNote({
+  children,
+  expanded,
+  onToggle,
+  ariaLabel,
+}: {
+  children: ReactNode;
+  expanded: boolean;
+  onToggle: () => void;
+  ariaLabel?: string;
+}) {
+  const contentRef = useRef<HTMLDivElement | null>(null);
+  const [canToggle, setCanToggle] = useState(false);
+
+  useEffect(() => {
+    function measure() {
+      const el = contentRef.current;
+      if (!el) return;
+      const previousClamp = el.style.webkitLineClamp;
+      const previousDisplay = el.style.display;
+      const previousOrient = el.style.webkitBoxOrient;
+      const previousOverflow = el.style.overflow;
+      const previousMaxHeight = el.style.maxHeight;
+
+      el.style.display = "-webkit-box";
+      el.style.webkitLineClamp = "5";
+      el.style.webkitBoxOrient = "vertical";
+      el.style.overflow = "hidden";
+      el.style.maxHeight = "calc(1.65em * 5)";
+
+      const hasOverflow = el.scrollHeight > el.clientHeight + 1;
+
+      el.style.webkitLineClamp = previousClamp;
+      el.style.display = previousDisplay;
+      el.style.webkitBoxOrient = previousOrient;
+      el.style.overflow = previousOverflow;
+      el.style.maxHeight = previousMaxHeight;
+
+      setCanToggle((current) =>
+        current === hasOverflow ? current : hasOverflow,
+      );
+    }
+
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  });
+
+  const noteStateClass = expanded
+    ? "reason-note-expanded"
+    : "reason-note-collapsed";
+
+  return (
+    <div
+      className={`reason-note ${noteStateClass}${canToggle ? " reason-note--toggleable" : ""}`}
+      aria-label={ariaLabel}
+    >
+      <div className="reason-note-clip">
+        <div ref={contentRef} className="reason-note-content">
+          {children}
+        </div>
+        {!expanded && canToggle && (
+          <div className="reason-note-fade" aria-hidden="true" />
+        )}
+      </div>
+      {canToggle && (
+        <div className="reason-note-footer">
+          <button
+            type="button"
+            className="reason-note-toggle"
+            onClick={onToggle}
+            aria-expanded={expanded}
+          >
+            {expanded ? "閉じる" : "続きを読む"}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function BattleScreen({
   opponent,
   setOpponent,
@@ -3678,6 +3792,11 @@ function BattleScreen({
   myTeam: MyPokemon[];
 }) {
   const [publicMetaData, setPublicMetaData] = useState<MetaData | null>(null);
+  const [expandedPredictionNotes, setExpandedPredictionNotes] = useState<
+    Record<string, boolean>
+  >({});
+  const [expandedRecommendationNotes, setExpandedRecommendationNotes] =
+    useState<Record<string, boolean>>({});
   const predictions = predictOpponent(opponent, publicMetaData);
   const [, setPokeApiCacheVersion] = useState(0);
   const validCount = opponent.filter((s) => s.trim() && isAllowed(s)).length;
@@ -3733,6 +3852,20 @@ function BattleScreen({
     const next = [...opponent];
     next[i] = val;
     setOpponent(next);
+  }
+
+  function togglePredictionNote(key: string) {
+    setExpandedPredictionNotes((prev) => ({
+      ...prev,
+      [key]: !prev[key],
+    }));
+  }
+
+  function toggleRecommendationNote(key: string) {
+    setExpandedRecommendationNotes((prev) => ({
+      ...prev,
+      [key]: !prev[key],
+    }));
   }
 
   return (
@@ -3813,7 +3946,11 @@ function BattleScreen({
                 />
                 <div className="result-info">
                   <div className="result-name">{p.name}</div>
-                  <div className="reason-note">
+                  <CollapsibleReasonNote
+                    expanded={Boolean(expandedPredictionNotes[p.name])}
+                    onToggle={() => togglePredictionNote(p.name)}
+                    ariaLabel={`${p.name}の選出予測メモ`}
+                  >
                     <div className="reason-note-row">
                       <span className="reason-note-label">採用根拠</span>
                       <span className="reason-note-value">{p.reason}</span>
@@ -3846,7 +3983,7 @@ function BattleScreen({
                       <span className="reason-note-label">役割</span>
                       <span className="reason-note-value">{p.role}</span>
                     </div>
-                  </div>
+                  </CollapsibleReasonNote>
                   <div className="result-tags result-tags--score-breakdown">
                     {p.scoreBreakdown.slice(0, 5).map((part) => (
                       <span
@@ -3918,14 +4055,22 @@ function BattleScreen({
                 <div className="result-info">
                   <div className="result-name">{r.pokemon.name}</div>
                   <div className="result-reason">{r.reason}</div>
-                  <div className="reason-note" aria-label={`${r.pokemon.name}のおすすめメモ`}>
+                  <CollapsibleReasonNote
+                    expanded={Boolean(
+                      expandedRecommendationNotes[r.pokemon.id],
+                    )}
+                    onToggle={() => toggleRecommendationNote(r.pokemon.id)}
+                    ariaLabel={`${r.pokemon.name}のおすすめメモ`}
+                  >
                     <div className="reason-note-title">おすすめメモ</div>
                     <div className="reason-note-row">
                       <span className="reason-note-label">おすすめ根拠</span>
                       <span className="reason-note-value">{r.reason}</span>
                     </div>
                     <div className="reason-note-row">
-                      <span className="reason-note-label">有利に見られる相手</span>
+                      <span className="reason-note-label">
+                        有利に見られる相手
+                      </span>
                       <span className="reason-note-value">
                         {r.advantagedOpponents.length > 0
                           ? r.advantagedOpponents.join(" / ")
@@ -3961,8 +4106,8 @@ function BattleScreen({
                           .join(" / ")}
                       </span>
                     </div>
-                  </div>
-                  <div className="result-tags">
+                  </CollapsibleReasonNote>
+                  <div className="result-tags recommendation-ability">
                     {r.pokemon.item && (
                       <span className="result-tag">
                         持ち物: {r.pokemon.item}
