@@ -1295,6 +1295,7 @@ button.result-tag {
   margin: 0 0 18px;
 }
 .battle-header {
+  position: relative;
   isolation: isolate;
   min-height: clamp(338px, 46vw, 468px);
   margin: 0;
