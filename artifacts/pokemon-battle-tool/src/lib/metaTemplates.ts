@@ -112,7 +112,7 @@ const makeTemplate = (name: string, entry: MetaPokemonEntry, rank: number, maxUs
 
 export function getPopularPokemonTemplates(meta: MetaData | null | undefined): MetaPokemonTemplate[] {
   const entries = getPokemonEntries(meta);
-  const maxUsage = Math.max(1, ...entries.map(([, entry]) => Number((entry as UnknownRecord).usageCount ?? 0) || 0));
+  const maxUsage = Math.max(1, ...entries.map(([, entry]) => Number((entry as unknown as UnknownRecord).usageCount ?? 0) || 0));
   return entries
     .map(([name, entry], index) => makeTemplate(name, entry, index + 1, maxUsage, "pokemon"))
     .sort((a, b) => b.usageCount - a.usageCount || b.usageRate - a.usageRate || b.score - a.score || a.name.localeCompare(b.name, "ja"))
