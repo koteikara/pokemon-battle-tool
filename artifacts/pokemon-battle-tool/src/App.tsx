@@ -2,6 +2,7 @@ import {
   useState,
   useEffect,
   useRef,
+  useMemo,
   type CSSProperties,
   type ReactNode,
 } from "react";
@@ -13,6 +14,14 @@ import {
   type MetaPokemonEntry,
   type MetaUsageEntry,
 } from "./lib/metaData";
+import {
+  createPokemonFromMetaTemplate,
+  getPokemonSetTemplates,
+  getPopularBuildTemplates,
+  getPopularPokemonTemplates,
+  type MetaBuildTemplate,
+  type MetaPokemonTemplate,
+} from "./lib/metaTemplates";
 import { ABILITY_LIST } from "./lib/abilities";
 import {
   fetchPokemonApiData,
@@ -2267,6 +2276,69 @@ function topLabel(entries: MetaUsageEntry[], fallback: string[]) {
   return metaLabels.length > 0 ? metaLabels : fallback;
 }
 
+function parseTemplateEvs(evs?: string): Pick<MyPokemon, "evH" | "evA" | "evB" | "evC" | "evD" | "evS"> {
+  const result = { evH: 0, evA: 0, evB: 0, evC: 0, evD: 0, evS: 0 };
+  if (!evs) return result;
+
+  const keyMap: Record<string, keyof typeof result> = {
+    H: "evH",
+    HP: "evH",
+    A: "evA",
+    B: "evB",
+    C: "evC",
+    D: "evD",
+    S: "evS",
+  };
+
+  evs.split(/[\s,/]+/).forEach((part) => {
+    const match = part.trim().match(/^(H|HP|A|B|C|D|S)(\d+)$/i);
+    if (!match) return;
+    const key = keyMap[match[1].toUpperCase()];
+    if (!key) return;
+    result[key] = Math.min(EV_MAX_SINGLE, Math.max(0, Number(match[2]) || 0));
+  });
+
+  return result;
+}
+
+function myPokemonFromMetaTemplate(template: MetaPokemonTemplate): MyPokemon {
+  const pokemon = createPokemonFromMetaTemplate(template);
+  const [move1 = "", move2 = "", move3 = "", move4 = ""] = pokemon.moves ?? [];
+  const priorityMap: Record<NonNullable<typeof pokemon.priority>, MyPokemon["pickPriority"]> = {
+    high: "高",
+    medium: "中",
+    low: "低",
+  };
+
+  return {
+    id: pokemon.id,
+    name: pokemon.name,
+    ...parseTemplateEvs(pokemon.evs),
+    move1,
+    move2,
+    move3,
+    move4,
+    nature: pokemon.nature ?? "",
+    item: pokemon.item ?? "",
+    ability: pokemon.ability ?? "",
+    teraType: pokemon.teraType ?? "",
+    roleTags: pokemon.roleTags ?? [],
+    pickPriority: pokemon.priority ? priorityMap[pokemon.priority] : "",
+    memo: `${pokemon.memo ?? "公開データから追加"}：${template.reason}`,
+  };
+}
+
+function templateUsageLabels(entries: MetaUsageEntry[], empty = "データなし") {
+  return entries.length > 0
+    ? entries.slice(0, 3).map((entry) => `${entry.name}${entry.rate ? ` ${Math.round(entry.rate)}%` : ""}`)
+    : [empty];
+}
+
+function formatTemplateUsage(template: MetaPokemonTemplate) {
+  const rate = template.usageRate > 0 ? ` / ${Math.round(template.usageRate)}%相当` : "";
+  return `採用数${template.usageCount}${rate}`;
+}
+
 function formatPokemonApiStats(data: PokemonApiData): string {
   const { stats } = data;
   return `H${stats.hp} A${stats.attack} B${stats.defense} C${stats.specialAttack} D${stats.specialDefense} S${stats.speed}`;
@@ -2713,6 +2785,7 @@ export default function App() {
   });
   const [form, setForm] = useState(emptyForm());
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [pendingBuildTemplate, setPendingBuildTemplate] = useState<MetaBuildTemplate | null>(null);
   const [savedCardMetaData, setSavedCardMetaData] = useState<MetaData | null>(null);
 
   useEffect(() => {
@@ -2797,6 +2870,57 @@ export default function App() {
     setForm(emptyForm());
   }
 
+  function applyMetaTemplateToForm(template: MetaPokemonTemplate) {
+    const pokemon = myPokemonFromMetaTemplate(template);
+    setEditingId(null);
+    setForm({
+      name: pokemon.name,
+      evH: pokemon.evH,
+      evA: pokemon.evA,
+      evB: pokemon.evB,
+      evC: pokemon.evC,
+      evD: pokemon.evD,
+      evS: pokemon.evS,
+      move1: pokemon.move1,
+      move2: pokemon.move2,
+      move3: pokemon.move3,
+      move4: pokemon.move4,
+      nature: pokemon.nature,
+      item: pokemon.item,
+      ability: pokemon.ability,
+      teraType: pokemon.teraType,
+      roleTags: pokemon.roleTags,
+      pickPriority: pokemon.pickPriority,
+      memo: pokemon.memo,
+    });
+  }
+
+  function addMetaTemplateToTeam(template: MetaPokemonTemplate) {
+    setMyTeam((prev) => [...prev, myPokemonFromMetaTemplate(template)]);
+  }
+
+  function addBuildMembers(template: MetaBuildTemplate, mode: "missing" | "all") {
+    setMyTeam((prev) => {
+      const registeredNames = new Set(prev.map((pokemon) => normalize(pokemon.name)));
+      const members = template.members
+        .filter((member) => mode === "all" || !registeredNames.has(normalize(member.name)))
+        .map(myPokemonFromMetaTemplate);
+      return members.length > 0 ? [...prev, ...members] : prev;
+    });
+    setPendingBuildTemplate(null);
+  }
+
+  function requestAddBuild(template: MetaBuildTemplate) {
+    const hasDuplicate = template.members.some((member) =>
+      myTeam.some((pokemon) => normalize(pokemon.name) === normalize(member.name)),
+    );
+    if (hasDuplicate) {
+      setPendingBuildTemplate(template);
+      return;
+    }
+    addBuildMembers(template, "all");
+  }
+
   return (
     <div id="app-root">
       <div className="app-bg-layer" aria-hidden="true" />
@@ -2846,6 +2970,9 @@ export default function App() {
                   onCancelEdit={cancelEdit}
                   editingId={editingId}
                   metaData={savedCardMetaData}
+                  onApplyTemplate={applyMetaTemplateToForm}
+                  onAddTemplate={addMetaTemplateToTeam}
+                  onAddBuild={requestAddBuild}
                 />
               )}
               {screen === "battle" && (
@@ -2868,6 +2995,19 @@ export default function App() {
             />
           )}
           {bottomView === "guide" && <GuideScreen />}
+          {pendingBuildTemplate && (
+            <div className="duplicate-dialog" role="dialog" aria-modal="true" aria-label="重複確認">
+              <div className="duplicate-dialog-card">
+                <h3>同じポケモンがいます</h3>
+                <p>同じポケモンが既に登録されています。未登録だけ追加しますか？</p>
+                <div className="template-actions">
+                  <button type="button" className="btn-template-add" onClick={() => addBuildMembers(pendingBuildTemplate, "missing")}>未登録だけ追加</button>
+                  <button type="button" className="btn-template-apply" onClick={() => addBuildMembers(pendingBuildTemplate, "all")}>すべて追加</button>
+                  <button type="button" className="btn-secondary" onClick={() => setPendingBuildTemplate(null)}>キャンセル</button>
+                </div>
+              </div>
+            </div>
+          )}
         </main>
         <footer className="bottom-nav" aria-label="補助ナビゲーション">
           <button
@@ -3361,6 +3501,9 @@ interface RegisterProps {
   onCancelEdit: () => void;
   editingId: string | null;
   metaData: MetaData | null;
+  onApplyTemplate: (template: MetaPokemonTemplate) => void;
+  onAddTemplate: (template: MetaPokemonTemplate) => void;
+  onAddBuild: (template: MetaBuildTemplate) => void;
 }
 
 function RegisterScreen({
@@ -3375,6 +3518,9 @@ function RegisterScreen({
   onCancelEdit,
   editingId,
   metaData,
+  onApplyTemplate,
+  onAddTemplate,
+  onAddBuild,
 }: RegisterProps) {
   const [pokeApiStatus, setPokeApiStatus] = useState<
     "idle" | "loading" | "success" | "unsupported" | "error"
@@ -3491,12 +3637,42 @@ function RegisterScreen({
   }, [form.move1, form.move2, form.move3, form.move4]);
 
   const moveTeamChecks = getMoveTeamChecks(form, moveInfoStates);
+  const [, setTemplateImageCacheVersion] = useState(0);
 
   const evTotal = EV_STATS.reduce((sum, s) => sum + (form[s.key] as number), 0);
   const evOk =
     evTotal <= EV_MAX_TOTAL &&
     EV_STATS.every((s) => (form[s.key] as number) <= EV_MAX_SINGLE);
   const canSave = form.name.trim() !== "" && isAllowed(form.name) && evOk;
+  const popularPokemonTemplates = useMemo(() => getPopularPokemonTemplates(metaData), [metaData]);
+  const popularSetTemplates = useMemo(() => getPokemonSetTemplates(metaData), [metaData]);
+  const popularBuildTemplates = useMemo(() => getPopularBuildTemplates(metaData), [metaData]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const namesToFetch = Array.from(new Set([
+      ...popularPokemonTemplates.slice(0, 12).map((template) => template.name),
+      ...popularSetTemplates.slice(0, 12).map((template) => template.name),
+      ...popularBuildTemplates.slice(0, 4).flatMap((template) => template.memberNames),
+    ])).filter((name) => {
+      const cached = getCachedPokemonApiData(name);
+      return getPokemonApiName(name) && (!cached || (!cached.imageUrl && !cached.officialArtworkUrl));
+    });
+
+    if (namesToFetch.length === 0) return;
+
+    Promise.allSettled(namesToFetch.map((name) => fetchPokemonApiData(name))).then(() => {
+      if (!cancelled) setTemplateImageCacheVersion((version) => version + 1);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    popularPokemonTemplates.map((template) => template.name).join("|"),
+    popularSetTemplates.map((template) => `${template.name}:${template.setName ?? ""}`).join("|"),
+    popularBuildTemplates.map((template) => template.memberNames.join("-")).join("|"),
+  ]);
 
   return (
     <div className="screen">
@@ -3738,6 +3914,16 @@ function RegisterScreen({
         </div>
       </div>
 
+      <PopularDataSection
+        metaData={metaData}
+        popularPokemon={popularPokemonTemplates}
+        setTemplates={popularSetTemplates}
+        buildTemplates={popularBuildTemplates}
+        onApplyTemplate={onApplyTemplate}
+        onAddTemplate={onAddTemplate}
+        onAddBuild={onAddBuild}
+      />
+
       <div style={{ padding: "4px 0" }}>
         <div className="card-title" style={{ padding: "0 4px 8px" }}>
           登録済み — {myTeam.length} 匹
@@ -3764,6 +3950,133 @@ function RegisterScreen({
         )}
       </div>
     </div>
+  );
+
+}
+
+function PopularDataSection({
+  metaData,
+  popularPokemon,
+  setTemplates,
+  buildTemplates,
+  onApplyTemplate,
+  onAddTemplate,
+  onAddBuild,
+}: {
+  metaData: MetaData | null;
+  popularPokemon: MetaPokemonTemplate[];
+  setTemplates: MetaPokemonTemplate[];
+  buildTemplates: MetaBuildTemplate[];
+  onApplyTemplate: (template: MetaPokemonTemplate) => void;
+  onAddTemplate: (template: MetaPokemonTemplate) => void;
+  onAddBuild: (template: MetaBuildTemplate) => void;
+}) {
+  const [activeTab, setActiveTab] = useState<"pokemon" | "sets" | "builds">("pokemon");
+  const [showMore, setShowMore] = useState(false);
+  const hasMeta = Boolean(metaData);
+  const pokemonList = (showMore ? popularPokemon.slice(0, 12) : popularPokemon.slice(0, 4));
+  const setList = (showMore ? setTemplates.slice(0, 12) : setTemplates.slice(0, 4));
+  const buildList = (showMore ? buildTemplates.slice(0, 8) : buildTemplates.slice(0, 3));
+  const isEmpty = hasMeta && popularPokemon.length === 0 && buildTemplates.length === 0;
+
+  return (
+    <section className="popular-template-panel" aria-label="公開データから追加">
+      <div className="popular-pokemon-heading-row">
+        <div>
+          <div className="card-title">公開データから追加</div>
+          <p className="popular-pokemon-help">よく使われる型を選ぶだけで、フォームや保存リストに入れられます。</p>
+        </div>
+        {hasMeta ? <span className="popular-pokemon-source">データ反映済み</span> : null}
+      </div>
+
+      {!hasMeta && <div className="popular-status">公開データを取得できませんでした。手入力はそのまま使えます。</div>}
+      {isEmpty && <div className="popular-status">表示できる公開データがありません。</div>}
+
+      <div className="popular-tabs" role="tablist" aria-label="公開データの種類">
+        <button type="button" className={activeTab === "pokemon" ? "active" : ""} onClick={() => setActiveTab("pokemon")}>人気ポケモン</button>
+        <button type="button" className={activeTab === "sets" ? "active" : ""} onClick={() => setActiveTab("sets")}>型テンプレ</button>
+        <button type="button" className={activeTab === "builds" ? "active" : ""} onClick={() => setActiveTab("builds")}>構築セット</button>
+      </div>
+
+      <div className="popular-grid">
+        {activeTab === "pokemon" && pokemonList.map((template) => (
+          <TemplateCard key={`${template.kind}-${template.name}-${template.rank}`} template={template} onApply={onApplyTemplate} onAdd={onAddTemplate} />
+        ))}
+        {activeTab === "sets" && setList.map((template) => (
+          <TemplateCard key={`${template.kind}-${template.name}-${template.rank}-${template.setName}`} template={template} onApply={onApplyTemplate} onAdd={onAddTemplate} showSet />
+        ))}
+        {activeTab === "builds" && buildList.map((template) => (
+          <BuildTemplateCard key={`${template.rank}-${template.memberNames.join("-")}`} template={template} onAdd={onAddBuild} />
+        ))}
+      </div>
+
+      <button type="button" className="popular-more popular-more-button" onClick={() => setShowMore((value) => !value)}>
+        {showMore ? "少なく表示" : "もっと見る"}
+      </button>
+    </section>
+  );
+}
+
+function TemplateCard({
+  template,
+  onApply,
+  onAdd,
+  showSet = false,
+}: {
+  template: MetaPokemonTemplate;
+  onApply: (template: MetaPokemonTemplate) => void;
+  onAdd: (template: MetaPokemonTemplate) => void;
+  showSet?: boolean;
+}) {
+  return (
+    <article className="template-card">
+      <div className="template-card-head">
+        <div className="template-rank">{template.rank}位</div>
+        <PokemonPortrait name={template.name} imageUrl={getPokemonImageUrl(template.name)} size="saved" />
+        <div>
+          <h4>{template.name}</h4>
+          {showSet && <div className="template-set-name">{template.setName ?? "おすすめ型"}</div>}
+          <div className="template-set-name">{formatTemplateUsage(template)}</div>
+        </div>
+      </div>
+      <div className="template-lines">
+        <div><b>持ち物</b> {templateUsageLabels(template.items).join("、")}</div>
+        <div><b>テラ</b> {templateUsageLabels(template.teraTypes).join("、")}</div>
+        <div><b>技</b> {templateUsageLabels(template.moves).join("、")}</div>
+        <div><b>役割</b> {template.roleTags.join("、") || "汎用"}</div>
+      </div>
+      <div className="template-actions">
+        <button type="button" className="btn-template-apply" onClick={() => onApply(template)}>フォームに反映</button>
+        <button type="button" className="btn-template-add" onClick={() => onAdd(template)}>保存リストに追加</button>
+      </div>
+    </article>
+  );
+}
+
+function BuildTemplateCard({ template, onAdd }: { template: MetaBuildTemplate; onAdd: (template: MetaBuildTemplate) => void }) {
+  return (
+    <article className="template-card template-card-build">
+      <div className="template-card-head">
+        <div className="template-rank">{template.rank}位</div>
+        <div className="build-sprites" aria-hidden="true">
+          {template.members.map((member) => (
+            <PokemonPortrait key={`${template.rank}-${member.name}`} name={member.name} imageUrl={getPokemonImageUrl(member.name)} size="chip" />
+          ))}
+        </div>
+        <div>
+          <h4>{template.name}</h4>
+          <div className="template-set-name">{template.rating ? `レート${Math.round(template.rating)}` : "公開構築"}</div>
+        </div>
+      </div>
+      <div className="template-lines">
+        <div><b>6匹</b> {template.memberNames.join("、")}</div>
+        <div><b>特徴</b> {template.feature}</div>
+        <div><b>役割</b> {template.roleTags.join("、") || "汎用"}</div>
+      </div>
+      <div className="template-actions">
+        <button type="button" className="btn-template-add" onClick={() => onAdd(template)}>6匹を追加</button>
+      </div>
+    </article>
   );
 }
 
