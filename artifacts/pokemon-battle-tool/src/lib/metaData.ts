@@ -19,7 +19,7 @@ export interface MetaTeamPattern {
 
 export interface MetaData {
   updatedAt: string;
-  source: "pokedb" | string;
+  source: "champs-pokedb" | "pokedb" | string;
   sourceUrl?: string;
   error?: string;
   pokemon: Record<string, MetaPokemonEntry>;
@@ -41,7 +41,6 @@ export async function loadMetaData(): Promise<MetaData | null> {
       !Array.isArray(data.teamPatterns)
     )
       return null;
-    if (Object.keys(data.pokemon).length === 0) return null;
     return data as MetaData;
   } catch {
     return null;
@@ -52,7 +51,7 @@ export function findMetaPokemon(
   metaData: MetaData | null,
   pokemonName: string,
 ): MetaPokemonEntry | null {
-  if (!metaData) return null;
+  if (!hasUsableMetaData(metaData)) return null;
   const exact = metaData.pokemon[pokemonName.trim()];
   if (exact) return exact;
 
@@ -61,4 +60,13 @@ export function findMetaPokemon(
     (name) => normalizeName(name) === wanted,
   );
   return matchedKey ? metaData.pokemon[matchedKey] : null;
+}
+
+export function hasUsableMetaData(metaData: MetaData | null | undefined): metaData is MetaData {
+  return Boolean(
+    metaData &&
+      metaData.source === "champs-pokedb" &&
+      Object.keys(metaData.pokemon ?? {}).length > 0 &&
+      Array.isArray(metaData.teamPatterns),
+  );
 }

@@ -3,9 +3,13 @@ import { access, mkdir, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 
+const CHAMPS_POKEDB_HOST = "champs.pokedb.tokyo";
+const CHAMPS_OPEN_DATA_SOURCE = "champs-pokedb";
+const CHAMPS_UNAVAILABLE_ERROR = "Champions open data source not found or unavailable";
+const CHAMPS_OPEN_DATA_GUIDE_URL = `https://${CHAMPS_POKEDB_HOST}/guide/opendata`;
 const DEFAULT_SOURCE_URLS = [
-  "https://sv.pokedb.tokyo/opendata/s38_single_ranked_teams.json",
-  "https://sv.pokedb.tokyo/opendata/s38_double_ranked_teams.json",
+  "https://champs.pokedb.tokyo/opendata/s1_single_ranked_teams.json",
+  "https://champs.pokedb.tokyo/opendata/s1_double_ranked_teams.json",
 ];
 
 const OUTPUT_PATH = "artifacts/pokemon-battle-tool/public/data/meta.json";
@@ -13,9 +17,49 @@ const SOURCE_URLS = (process.env.POKEDB_PUBLIC_JSON_URLS ?? process.env.POKEDB_S
   .split(",")
   .map((url) => url.trim())
   .filter(Boolean);
-const POKEDB_SOURCE_URLS = SOURCE_URLS.length > 0 ? SOURCE_URLS : DEFAULT_SOURCE_URLS;
 const MAX_LIST_ITEMS = Number(process.env.META_MAX_LIST_ITEMS ?? 5);
 const MAX_TEAM_PATTERNS = Number(process.env.META_MAX_TEAM_PATTERNS ?? 300);
+
+function unique(values) {
+  return Array.from(new Set(values));
+}
+
+function decodeHtmlUrl(url) {
+  return url.replace(/&amp;/g, "&");
+}
+
+async function discoverChampsOpenDataUrls() {
+  console.log("Checking Champions open data guide:");
+  console.log(CHAMPS_OPEN_DATA_GUIDE_URL);
+  try {
+    const response = await fetch(CHAMPS_OPEN_DATA_GUIDE_URL, {
+      headers: {
+        accept: "text/html,application/xhtml+xml",
+        "user-agent": "pokemon-battle-tool-meta-updater/1.0 (+https://github.com/)",
+      },
+    });
+    console.log(`Open data guide status: ${response.status} ${response.statusText}`);
+    if (!response.ok) return [];
+
+    const html = await response.text();
+    const urls = unique(
+      [...html.matchAll(/https:\/\/champs\.pokedb\.tokyo\/opendata\/[^"'\s<>]+?\.json/g)]
+        .map((match) => decodeHtmlUrl(match[0])),
+    );
+    console.log(`Champions JSON links discovered: ${urls.length}`);
+    for (const url of urls) console.log(`- ${url}`);
+    return urls;
+  } catch (error) {
+    console.warn(`Failed to inspect Champions open data guide: ${error.message}`);
+    return [];
+  }
+}
+
+async function resolveSourceUrls() {
+  if (SOURCE_URLS.length > 0) return SOURCE_URLS;
+  const discoveredUrls = await discoverChampsOpenDataUrls();
+  return discoveredUrls.length > 0 ? discoveredUrls : DEFAULT_SOURCE_URLS;
+}
 
 function asArray(value) {
   if (Array.isArray(value)) return value;
@@ -106,6 +150,29 @@ function recordRawCollectionStats(data) {
   return stats;
 }
 
+function getRawTeamEntries(data) {
+  if (!data || typeof data !== "object") return [];
+  if (Array.isArray(data)) return data;
+  return asArray(data.teams ?? data.teamPatterns ?? data.rankings ?? data.parties ?? data.constructions);
+}
+
+function getSamplePokemonNames(data) {
+  const names = [];
+  for (const team of getRawTeamEntries(data)) {
+    for (const name of membersFromRecord(team)) {
+      if (!names.includes(name)) names.push(name);
+      if (names.length >= 5) return names;
+    }
+  }
+
+  const { pokemonEntries } = detectCollections(data);
+  for (const entry of pokemonEntries.map(normalizePokemonEntry).filter(Boolean)) {
+    if (!names.includes(entry.name)) names.push(entry.name);
+    if (names.length >= 5) return names;
+  }
+  return names;
+}
+
 function logJsonStructure(data) {
   if (Array.isArray(data)) {
     console.log("Fetched array length:");
@@ -120,6 +187,18 @@ function logJsonStructure(data) {
   }
 
   console.log(`Fetched JSON primitive type: ${typeof data}`);
+}
+
+function logSourceSummary(sourceUrl, rawData, meta) {
+  console.log("PokeDB source summary:");
+  console.log(`sourceUrl: ${sourceUrl}`);
+  console.log(`season: ${rawData?.season ?? meta?.season ?? "unknown"}`);
+  console.log(`rule: ${rawData?.rule ?? meta?.rule ?? "unknown"}`);
+  console.log(`updated_at: ${rawData?.updated_at ?? rawData?.updatedAt ?? meta?.updatedAt ?? "unknown"}`);
+  console.log(`teams count: ${getRawTeamEntries(rawData).length || asArray(meta?.teamPatterns).length}`);
+  console.log(`pokemon count: ${Object.keys(meta?.pokemon ?? {}).length}`);
+  const samples = getSamplePokemonNames(rawData).slice(0, 5);
+  console.log(`sample pokemon: ${samples.length > 0 ? samples.join(", ") : "none"}`);
 }
 
 function detectCollections(data) {
@@ -238,10 +317,10 @@ function mergePokemon(target, entry) {
 }
 
 function normalizeMeta(rawData, sourceUrl) {
-  if (rawData?.source === "pokedb" && rawData?.pokemon && rawData?.teamPatterns) {
+  if ((rawData?.source === CHAMPS_OPEN_DATA_SOURCE || rawData?.source === "pokedb") && rawData?.pokemon && rawData?.teamPatterns) {
     return {
-      updatedAt: rawData.updatedAt ?? new Date().toISOString(),
-      source: "pokedb",
+      updatedAt: rawData.updatedAt ?? rawData.updated_at ?? new Date().toISOString(),
+      source: CHAMPS_OPEN_DATA_SOURCE,
       sourceUrl,
       pokemon: rawData.pokemon,
       teamPatterns: asArray(rawData.teamPatterns).slice(0, MAX_TEAM_PATTERNS),
@@ -262,7 +341,7 @@ function normalizeMeta(rawData, sourceUrl) {
 
   return {
     updatedAt: new Date().toISOString(),
-    source: "pokedb",
+    source: CHAMPS_OPEN_DATA_SOURCE,
     sourceUrl,
     pokemon,
     teamPatterns,
@@ -278,7 +357,11 @@ function validateSourceUrl(url) {
   }
 
   if (parsedUrl.pathname.endsWith("/guide/opendata")) {
-    throw new Error(`not a JSON URL: ${url}. Use a public JSON URL such as https://sv.pokedb.tokyo/opendata/s38_single_ranked_teams.json`);
+    throw new Error(`not a JSON URL: ${url}. Use a Champions public JSON URL under https://${CHAMPS_POKEDB_HOST}/opendata/`);
+  }
+
+  if (parsedUrl.hostname !== CHAMPS_POKEDB_HOST) {
+    throw new Error(`unsupported PokeDB host: ${parsedUrl.hostname}. Use Champions data from ${CHAMPS_POKEDB_HOST}; SV data is not accepted.`);
   }
 
   if (!parsedUrl.pathname.endsWith(".json")) {
@@ -317,13 +400,13 @@ async function fetchJson(url) {
   return response.json();
 }
 
-function createFallbackMeta(errorMessage = "fetch failed or no source data") {
+function createFallbackMeta(errorMessage = CHAMPS_UNAVAILABLE_ERROR) {
   return {
     updatedAt: new Date().toISOString(),
-    source: "pokedb",
+    source: CHAMPS_OPEN_DATA_SOURCE,
     pokemon: {},
     teamPatterns: [],
-    error: errorMessage,
+    error: errorMessage || CHAMPS_UNAVAILABLE_ERROR,
   };
 }
 
@@ -353,11 +436,12 @@ async function writeMeta(meta) {
 }
 
 async function main() {
+  const pokedbSourceUrls = await resolveSourceUrls();
   console.log("Using PokeDB URLs:");
-  for (const sourceUrl of POKEDB_SOURCE_URLS) console.log(`- ${sourceUrl}`);
+  for (const sourceUrl of pokedbSourceUrls) console.log(`- ${sourceUrl}`);
 
   let lastError;
-  for (const sourceUrl of POKEDB_SOURCE_URLS) {
+  for (const sourceUrl of pokedbSourceUrls) {
     try {
       const rawData = await fetchJson(sourceUrl);
       logJsonStructure(rawData);
@@ -366,6 +450,7 @@ async function main() {
       console.log(JSON.stringify(rawStats));
 
       const meta = normalizeMeta(rawData, sourceUrl);
+      logSourceSummary(sourceUrl, rawData, meta);
       const pokemonCount = Object.keys(meta.pokemon).length;
       const teamPatternsCount = meta.teamPatterns.length;
       console.log(`Generated meta pokemon count: ${pokemonCount}`);
@@ -382,9 +467,9 @@ async function main() {
     }
   }
 
-  const fallbackError = lastError?.message ?? "fetch failed or no source data";
-  console.warn(`No PokeDB source could be fetched; writing fallback meta.json. ${fallbackError}`);
-  await writeMeta(createFallbackMeta(fallbackError));
+  const fallbackDetails = lastError?.message ? ` Last error: ${lastError.message}` : "";
+  console.warn(`No Champions PokeDB source could be fetched; writing unavailable meta.json.${fallbackDetails}`);
+  await writeMeta(createFallbackMeta(CHAMPS_UNAVAILABLE_ERROR));
 }
 
 main().catch((error) => {
