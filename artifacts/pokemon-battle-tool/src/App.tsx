@@ -9,6 +9,7 @@ import {
 import { MOVES } from "./lib/moves";
 import {
   findMetaPokemon,
+  hasUsableMetaData,
   loadMetaData,
   type MetaData,
   type MetaPokemonEntry,
@@ -3973,7 +3974,7 @@ function PopularDataSection({
 }) {
   const [activeTab, setActiveTab] = useState<"pokemon" | "sets" | "builds">("pokemon");
   const [showMore, setShowMore] = useState(false);
-  const hasMeta = Boolean(metaData);
+  const hasMeta = hasUsableMetaData(metaData);
   const pokemonList = (showMore ? popularPokemon.slice(0, 12) : popularPokemon.slice(0, 4));
   const setList = (showMore ? setTemplates.slice(0, 12) : setTemplates.slice(0, 4));
   const buildList = (showMore ? buildTemplates.slice(0, 8) : buildTemplates.slice(0, 3));
@@ -3984,35 +3985,44 @@ function PopularDataSection({
       <div className="popular-pokemon-heading-row">
         <div>
           <div className="card-title">公開データから追加</div>
-          <p className="popular-pokemon-help">よく使われる型を選ぶだけで、フォームや保存リストに入れられます。</p>
+          <p className="popular-pokemon-help">Championsの公開採用データが使えると、型や構築を追加できます。</p>
         </div>
-        {hasMeta ? <span className="popular-pokemon-source">データ反映済み</span> : null}
+        {hasMeta ? <span className="popular-pokemon-source">Championsデータ反映済み</span> : null}
       </div>
 
-      {!hasMeta && <div className="popular-status">公開データを取得できませんでした。手入力はそのまま使えます。</div>}
+      {!hasMeta && (
+        <div className="popular-status">
+          <div>公開採用データはまだ利用できません。</div>
+          <div>現在はタイプ相性・種族値・登録情報をもとに予測しています。</div>
+        </div>
+      )}
       {isEmpty && <div className="popular-status">表示できる公開データがありません。</div>}
 
-      <div className="popular-tabs" role="tablist" aria-label="公開データの種類">
-        <button type="button" className={activeTab === "pokemon" ? "active" : ""} onClick={() => setActiveTab("pokemon")}>人気ポケモン</button>
-        <button type="button" className={activeTab === "sets" ? "active" : ""} onClick={() => setActiveTab("sets")}>型テンプレ</button>
-        <button type="button" className={activeTab === "builds" ? "active" : ""} onClick={() => setActiveTab("builds")}>構築セット</button>
-      </div>
+      {hasMeta && (
+        <>
+          <div className="popular-tabs" role="tablist" aria-label="公開データの種類">
+            <button type="button" className={activeTab === "pokemon" ? "active" : ""} onClick={() => setActiveTab("pokemon")}>人気ポケモン</button>
+            <button type="button" className={activeTab === "sets" ? "active" : ""} onClick={() => setActiveTab("sets")}>型テンプレ</button>
+            <button type="button" className={activeTab === "builds" ? "active" : ""} onClick={() => setActiveTab("builds")}>構築セット</button>
+          </div>
 
-      <div className="popular-grid">
-        {activeTab === "pokemon" && pokemonList.map((template) => (
-          <TemplateCard key={`${template.kind}-${template.name}-${template.rank}`} template={template} onApply={onApplyTemplate} onAdd={onAddTemplate} />
-        ))}
-        {activeTab === "sets" && setList.map((template) => (
-          <TemplateCard key={`${template.kind}-${template.name}-${template.rank}-${template.setName}`} template={template} onApply={onApplyTemplate} onAdd={onAddTemplate} showSet />
-        ))}
-        {activeTab === "builds" && buildList.map((template) => (
-          <BuildTemplateCard key={`${template.rank}-${template.memberNames.join("-")}`} template={template} onAdd={onAddBuild} />
-        ))}
-      </div>
+          <div className="popular-grid">
+            {activeTab === "pokemon" && pokemonList.map((template) => (
+              <TemplateCard key={`${template.kind}-${template.name}-${template.rank}`} template={template} onApply={onApplyTemplate} onAdd={onAddTemplate} />
+            ))}
+            {activeTab === "sets" && setList.map((template) => (
+              <TemplateCard key={`${template.kind}-${template.name}-${template.rank}-${template.setName}`} template={template} onApply={onApplyTemplate} onAdd={onAddTemplate} showSet />
+            ))}
+            {activeTab === "builds" && buildList.map((template) => (
+              <BuildTemplateCard key={`${template.rank}-${template.memberNames.join("-")}`} template={template} onAdd={onAddBuild} />
+            ))}
+          </div>
 
-      <button type="button" className="popular-more popular-more-button" onClick={() => setShowMore((value) => !value)}>
-        {showMore ? "少なく表示" : "もっと見る"}
-      </button>
+          <button type="button" className="popular-more popular-more-button" onClick={() => setShowMore((value) => !value)}>
+            {showMore ? "少なく表示" : "もっと見る"}
+          </button>
+        </>
+      )}
     </section>
   );
 }
@@ -4248,7 +4258,7 @@ function buildPopularPokemonCandidates(
   expanded: boolean,
 ): PopularPokemonCandidate[] {
   const limit = expanded ? 18 : 12;
-  const metaCandidates = metaData
+  const metaCandidates = hasUsableMetaData(metaData)
     ? Object.entries(metaData.pokemon)
         .filter(([name]) => isAllowed(name) && getPokemonApiName(name))
         .sort(([, a], [, b]) => (b.usageCount ?? 0) - (a.usageCount ?? 0))
@@ -4612,7 +4622,9 @@ function BattleScreen({
       <div className="card">
         <div className="result-section-title">相手の選出予測</div>
         <div className="result-meta-note">
-          入力された相手パーティから、公開データ上の傾向も参考に選出されやすい3匹を予測します。
+          {hasUsableMetaData(publicMetaData)
+            ? "入力された相手パーティから、Champions公開データ上の傾向も参考に選出されやすい3匹を予測します。"
+            : "公開採用データはまだ利用できません。現在はタイプ相性・種族値・登録情報をもとに予測しています。"}
         </div>
         {validCount === 0 ? (
           <div className="result-empty">
