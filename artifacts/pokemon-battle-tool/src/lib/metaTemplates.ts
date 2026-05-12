@@ -1,4 +1,4 @@
-import { MetaData, MetaPokemonEntry, MetaTeamPattern, MetaUsageEntry } from "@/lib/metaData";
+import { hasUsableMetaData, MetaData, MetaPokemonEntry, MetaTeamPattern, MetaUsageEntry } from "@/lib/metaData";
 import { Pokemon, PokemonType, POKEMON_TYPES } from "@/lib/pokemonLogic";
 
 export type RoleTag = "高速アタッカー" | "物理アタッカー" | "特殊アタッカー" | "耐久" | "サポート" | "クッション" | "対面" | "サイクル" | "起点作成" | "汎用";
@@ -76,7 +76,7 @@ const toPokemonType = (value: string | undefined): PokemonType => {
 const unique = <T,>(values: T[]) => Array.from(new Set(values));
 
 const getPokemonEntries = (meta: MetaData | null | undefined) => {
-  if (!meta?.pokemon || typeof meta.pokemon !== "object") return [] as Array<[string, MetaPokemonEntry]>;
+  if (!hasUsableMetaData(meta) || typeof meta.pokemon !== "object") return [] as Array<[string, MetaPokemonEntry]>;
   return Object.entries(meta.pokemon).filter(([name]) => name.trim().length > 0);
 };
 
@@ -143,7 +143,7 @@ export function getPokemonSetTemplates(meta: MetaData | null | undefined, pokemo
 }
 
 export function getPopularBuildTemplates(meta: MetaData | null | undefined): MetaBuildTemplate[] {
-  const patterns = Array.isArray(meta?.teamPatterns) ? meta.teamPatterns : [];
+  const patterns = hasUsableMetaData(meta) && Array.isArray(meta.teamPatterns) ? meta.teamPatterns : [];
   const popular = getPopularPokemonTemplates(meta);
   const map = new Map(popular.map((template) => [normalizeName(template.name), template]));
   return patterns.map((pattern: MetaTeamPattern, index) => {

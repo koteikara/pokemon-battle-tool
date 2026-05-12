@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { ABILITY_LIST } from "@/lib/abilities";
-import { findMetaPokemon, loadMetaData, MetaData, MetaPokemonEntry, MetaUsageEntry } from "@/lib/metaData";
+import { findMetaPokemon, hasUsableMetaData, loadMetaData, MetaData, MetaPokemonEntry, MetaUsageEntry } from "@/lib/metaData";
 import { createPokemonFromMetaTemplate, getPokemonSetTemplates, getPopularBuildTemplates, getPopularPokemonTemplates, MetaBuildTemplate, MetaPokemonTemplate } from "@/lib/metaTemplates";
 import { POKEMON_API_NAME_MAP } from "@/lib/pokeApi";
 import { getMultiplier, Pokemon, POKEMON_TYPES, PokemonType } from "@/lib/pokemonLogic";
@@ -207,6 +207,10 @@ function createShortReason(pokemonName: string, scoreParts: ScorePart[], metaEnt
 }
 
 function scoreWithMeta(pokemon: Pokemon, opponents: Pokemon[], metaData: MetaData | null, speedType: string): Pick<Prediction, "metaEntry" | "metaItems" | "teraCandidates" | "score" | "scoreParts" | "reason"> {
+  if (!hasUsableMetaData(metaData)) {
+    return { metaEntry: null, metaItems: [], teraCandidates: [], score: 0, scoreParts: [], reason: "入力メモから出てきそうな型を予想しています。" };
+  }
+
   const metaEntry = findMetaPokemon(metaData, pokemon.name);
   const opponentNames = opponents.filter(hasName).map((opponent) => cleanName(opponent.name));
   const maxUsage = Math.max(
@@ -228,7 +232,7 @@ function scoreWithMeta(pokemon: Pokemon, opponents: Pokemon[], metaData: MetaDat
     scoreParts.push({ label: "同時採用", points: partnerPoints, detail: partnerMatches.slice(0, 2).map((partner) => partner.name).join("・") });
   }
 
-  const teamPatterns = metaData?.teamPatterns ?? [];
+  const teamPatterns = hasUsableMetaData(metaData) ? metaData.teamPatterns : [];
   const matchingPattern = teamPatterns
     .map((pattern) => ({
       pattern,
@@ -303,19 +307,19 @@ function PopularDataSection({ metaData, popularPokemon, setTemplates, buildTempl
   const visiblePokemon = popularPokemon.filter(filterPokemon).slice(0, pokemonLimit);
   const visibleSets = setTemplates.filter(filterPokemon).slice(0, setLimit);
   const visibleBuilds = buildTemplates.filter(filterBuild).slice(0, buildLimit);
-  const hasMeta = Boolean(metaData);
+  const hasMeta = hasUsableMetaData(metaData);
   const isEmpty = hasMeta && popularPokemon.length === 0 && buildTemplates.length === 0;
 
   return <div className="popular-template-panel space-y-3">
     <div>
       <h3 className="font-bold text-lg">人気データから追加</h3>
-      <p className="text-sm text-muted-foreground">公開データの採用傾向から、よく使われるポケモンや型を自分のリストに追加できます。</p>
+      <p className="text-sm text-muted-foreground">Championsの公開採用データが使えると、型や構築を追加できます。</p>
     </div>
 
-    {!hasMeta && <div className="popular-status">公開データを取得できませんでした。手入力の登録はそのまま使えます。</div>}
+    {!hasMeta && <div className="popular-status"><div>公開採用データはまだ利用できません。</div><div>現在はタイプ相性・種族値・登録情報をもとに予測しています。</div></div>}
     {isEmpty && <div className="popular-status">公開データがまだありません。</div>}
 
-    <div className="popular-tabs" role="tablist" aria-label="人気データタブ">
+    {hasMeta && <><div className="popular-tabs" role="tablist" aria-label="人気データタブ">
       <button type="button" className={tab === "pokemon" ? "active" : ""} onClick={() => setTab("pokemon")}>人気ポケモン</button>
       <button type="button" className={tab === "sets" ? "active" : ""} onClick={() => setTab("sets")}>人気型</button>
       <button type="button" className={tab === "builds" ? "active" : ""} onClick={() => setTab("builds")}>構築テンプレ</button>
@@ -352,7 +356,7 @@ function PopularDataSection({ metaData, popularPokemon, setTemplates, buildTempl
       {buildTemplates.filter(filterBuild).length > visibleBuilds.length && <Button type="button" variant="outline" className="popular-more" onClick={() => setBuildLimit((value) => value + 6)}>もっと見る</Button>}
     </div>}
 
-    <p className="text-[11px] text-muted-foreground leading-relaxed">公開データをもとにした候補です。実際の型や努力値は自分の構築に合わせて調整してください。</p>
+    <p className="text-[11px] text-muted-foreground leading-relaxed">Champions公開データをもとにした候補です。実際の型や努力値は自分の構築に合わせて調整してください。</p></>}
   </div>;
 }
 
@@ -550,7 +554,7 @@ export default function Home() {
         <div>
           <div className="mb-2 flex items-center justify-between gap-2">
             <p className="text-sm font-semibold">相手の選出予想（上位3）</p>
-            {metaData && <Badge variant="outline" className="shrink-0 text-[11px]">採用データ反映済み</Badge>}
+            {hasUsableMetaData(metaData) ? <Badge variant="outline" className="shrink-0 text-[11px]">Champions採用データ反映済み</Badge> : <span className="text-xs text-muted-foreground">公開採用データはまだ利用できません</span>}
           </div>
           {topPredictions.map((prediction, index) => <div key={prediction.p.id} className="border rounded-lg p-3 mb-2 space-y-2">
             <div className="flex items-center justify-between gap-2"><div className="font-semibold">{index + 1}. {prediction.p.name}</div><div className="text-sm font-semibold">{prediction.score}点</div></div>
