@@ -18,6 +18,10 @@ export interface Pokemon {
   priority?: "high" | "medium" | "low";
   memo?: string;
   item?: string;
+  nature?: string;
+  evs?: string;
+  moves?: string[];
+  roleTags?: string[];
 }
 
 // 0 = Normal, 1 = Fire, 2 = Water, 3 = Electric, 4 = Grass, 5 = Ice, 6 = Fighting, 7 = Poison

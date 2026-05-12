@@ -8,6 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { ABILITY_LIST } from "@/lib/abilities";
 import { findMetaPokemon, loadMetaData, MetaData, MetaPokemonEntry, MetaUsageEntry } from "@/lib/metaData";
+import { createPokemonFromMetaTemplate, getPokemonSetTemplates, getPopularBuildTemplates, getPopularPokemonTemplates, MetaBuildTemplate, MetaPokemonTemplate } from "@/lib/metaTemplates";
+import { POKEMON_API_NAME_MAP } from "@/lib/pokeApi";
 import { getMultiplier, Pokemon, POKEMON_TYPES, PokemonType } from "@/lib/pokemonLogic";
 
 const STORAGE_KEY = "pokemon-battle-tool-data-v1";
@@ -49,12 +51,101 @@ const normalizePokemon = (p: Partial<Pokemon>, id = crypto.randomUUID()): Pokemo
   priority: (p.priority as Priority) ?? "medium",
   memo: p.memo ?? "",
   item: p.item ?? "",
+  nature: p.nature ?? "",
+  evs: p.evs ?? "",
+  moves: Array.isArray(p.moves) ? p.moves.slice(0, 4) : [],
+  roleTags: Array.isArray(p.roleTags) ? p.roleTags : [],
 });
 
 const newPokemon = () => normalizePokemon({});
 const cleanName = (name: string) => name.trim().replace(/\s+/g, "");
 const hasName = (pokemon: Pokemon) => pokemon.name.trim().length > 0;
 const isPokemonType = (value: string): value is Exclude<PokemonType, ""> => POKEMON_TYPES.includes(value as Exclude<PokemonType, "">);
+
+
+const TEMPLATE_SPRITE_NAME_MAP: Record<string, string> = {
+  バドレックス: "calyrex-shadow",
+  ディンルー: "tinglu",
+  パオジアン: "chienpao",
+  コライドン: "koraidon",
+  ウーラオス: "urshifu-rapidstrike",
+  ミライドン: "miraidon",
+  ランドロス: "landorus-therian",
+  ザシアン: "zacian-crowned",
+  ルナアーラ: "lunala",
+  カイオーガ: "kyogre",
+  ハバタクカミ: "fluttermane",
+  テツノワダチ: "irontreads",
+  ガチグマ: "ursaluna",
+  ヘイラッシャ: "dondozo",
+  ホウオウ: "hooh",
+  オーロンゲ: "grimmsnarl",
+  ムゲンダイナ: "eternatus",
+  キノガッサ: "breloom",
+  テラパゴス: "terapagos",
+  オーガポン: "ogerpon",
+  ドオー: "clodsire",
+  イーユイ: "chiyu",
+  オオニューラ: "sneasler",
+  ベトベトン: "muk",
+  ママンボウ: "alomomola",
+  ルギア: "lugia",
+  マタドガス: "weezing",
+  レックウザ: "rayquaza",
+  ヒードラン: "heatran",
+  ザマゼンタ: "zamazenta-crowned",
+  トドロクツキ: "roaringmoon",
+  ラッキー: "chansey",
+  チオンジェン: "wochien",
+  ウネルミナモ: "walkingwake",
+  ハピナス: "blissey",
+  ゴリランダー: "rillaboom",
+  イダイナキバ: "greattusk",
+  サンダー: "zapdos",
+  ネクロズマ: "necrozma",
+  イダイトウ: "basculegion",
+  バシャーモ: "blaziken",
+};
+
+const templateImageUrl = (name: string) => {
+  const apiName = TEMPLATE_SPRITE_NAME_MAP[name] ?? POKEMON_API_NAME_MAP[name] ?? POKEMON_API_NAME_MAP[name.replace(/（.*?）/g, "")] ?? "pokeball";
+  return `https://play.pokemonshowdown.com/sprites/ani/${apiName}.gif`;
+};
+
+const formatUsage = (template: MetaPokemonTemplate) => {
+  const rate = template.usageRate > 0 ? ` / ${Math.round(template.usageRate)}%相当` : "";
+  return `採用数${template.usageCount}${rate}`;
+};
+
+const entryLabels = (entries: MetaUsageEntry[], empty = "データなし") => entries.length > 0 ? entries.slice(0, 3).map((entry) => `${entry.name}${entry.rate ? ` ${Math.round(entry.rate)}%` : ""}`) : [empty];
+
+const templateSearchText = (template: MetaPokemonTemplate) => [
+  template.name,
+  ...template.items.map((entry) => entry.name),
+  ...template.abilities.map((entry) => entry.name),
+  ...template.teraTypes.map((entry) => entry.name),
+  ...template.roleTags,
+].join(" ").toLowerCase();
+
+const buildSearchText = (template: MetaBuildTemplate) => [
+  template.name,
+  ...template.memberNames,
+  ...template.members.flatMap((member) => [member.name, ...member.items.map((entry) => entry.name), ...member.teraTypes.map((entry) => entry.name), ...member.roleTags]),
+  ...template.roleTags,
+].join(" ").toLowerCase();
+
+const matchesFilter = (text: string, filter: string) => {
+  if (filter === "all") return true;
+  const map: Record<string, string[]> = {
+    attacker: ["アタッカー", "対面"],
+    bulky: ["耐久", "クッション"],
+    support: ["サポート", "起点作成"],
+    fast: ["高速", "スカーフ", "タスキ"],
+    face: ["対面", "タスキ", "ハチマキ", "メガネ"],
+    cycle: ["サイクル", "クッション", "とんぼ", "ボルトチェンジ"],
+  };
+  return (map[filter] ?? []).some((word) => text.includes(word.toLowerCase()));
+};
 
 function TypeSelect({ value, onChange, placeholder }: { value: PokemonType; onChange: (v: PokemonType) => void; placeholder: string }) {
   return (
@@ -180,12 +271,143 @@ function attackTypeAdvantage(user: Pokemon, target: Pokemon, targetTeraType?: st
   return Math.max(...attackTypes.map((attackType) => getMultiplier(attackType, defenseType1, defenseType2)));
 }
 
+
+type PopularDataSectionProps = {
+  metaData: MetaData | null;
+  popularPokemon: MetaPokemonTemplate[];
+  setTemplates: MetaPokemonTemplate[];
+  buildTemplates: MetaBuildTemplate[];
+  onApplyTemplate: (template: MetaPokemonTemplate) => void;
+  onAddTemplate: (template: MetaPokemonTemplate) => void;
+  onAddBuild: (template: MetaBuildTemplate) => void;
+};
+
+function PopularDataSection({ metaData, popularPokemon, setTemplates, buildTemplates, onApplyTemplate, onAddTemplate, onAddBuild }: PopularDataSectionProps) {
+  const [tab, setTab] = useState<"pokemon" | "sets" | "builds">("pokemon");
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState("all");
+  const [pokemonLimit, setPokemonLimit] = useState(12);
+  const [setLimit, setSetLimit] = useState(12);
+  const [buildLimit, setBuildLimit] = useState(6);
+
+  const normalizedQuery = query.trim().toLowerCase();
+  const filterPokemon = (template: MetaPokemonTemplate) => {
+    const text = templateSearchText(template);
+    return (!normalizedQuery || text.includes(normalizedQuery)) && matchesFilter(text, filter);
+  };
+  const filterBuild = (template: MetaBuildTemplate) => {
+    const text = buildSearchText(template);
+    return (!normalizedQuery || text.includes(normalizedQuery)) && matchesFilter(text, filter);
+  };
+
+  const visiblePokemon = popularPokemon.filter(filterPokemon).slice(0, pokemonLimit);
+  const visibleSets = setTemplates.filter(filterPokemon).slice(0, setLimit);
+  const visibleBuilds = buildTemplates.filter(filterBuild).slice(0, buildLimit);
+  const hasMeta = Boolean(metaData);
+  const isEmpty = hasMeta && popularPokemon.length === 0 && buildTemplates.length === 0;
+
+  return <div className="popular-template-panel space-y-3">
+    <div>
+      <h3 className="font-bold text-lg">人気データから追加</h3>
+      <p className="text-sm text-muted-foreground">公開データの採用傾向から、よく使われるポケモンや型を自分のリストに追加できます。</p>
+    </div>
+
+    {!hasMeta && <div className="popular-status">公開データを取得できませんでした。手入力の登録はそのまま使えます。</div>}
+    {isEmpty && <div className="popular-status">公開データがまだありません。</div>}
+
+    <div className="popular-tabs" role="tablist" aria-label="人気データタブ">
+      <button type="button" className={tab === "pokemon" ? "active" : ""} onClick={() => setTab("pokemon")}>人気ポケモン</button>
+      <button type="button" className={tab === "sets" ? "active" : ""} onClick={() => setTab("sets")}>人気型</button>
+      <button type="button" className={tab === "builds" ? "active" : ""} onClick={() => setTab("builds")}>構築テンプレ</button>
+    </div>
+
+    <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+      <Input value={query} placeholder="名前・持ち物・特性・テラ・役割で検索" onChange={(e) => setQuery(e.target.value)} />
+      <Select value={filter} onValueChange={setFilter}>
+        <SelectTrigger className="h-11"><SelectValue placeholder="フィルタ" /></SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">すべて</SelectItem>
+          <SelectItem value="attacker">アタッカー</SelectItem>
+          <SelectItem value="bulky">耐久</SelectItem>
+          <SelectItem value="support">サポート</SelectItem>
+          <SelectItem value="fast">高速</SelectItem>
+          <SelectItem value="face">対面</SelectItem>
+          <SelectItem value="cycle">サイクル</SelectItem>
+        </SelectContent>
+      </Select>
+    </div>
+
+    {tab === "pokemon" && <div className="popular-grid">
+      {visiblePokemon.map((template) => <TemplateCard key={template.name} template={template} onApply={onApplyTemplate} onAdd={onAddTemplate} />)}
+      {popularPokemon.filter(filterPokemon).length > visiblePokemon.length && <Button type="button" variant="outline" className="popular-more" onClick={() => setPokemonLimit((value) => value + 12)}>もっと見る</Button>}
+    </div>}
+
+    {tab === "sets" && <div className="popular-grid">
+      {visibleSets.map((template) => <TemplateCard key={`${template.name}-${template.setName}-${template.items[0]?.name ?? "none"}`} template={template} onApply={onApplyTemplate} onAdd={onAddTemplate} showSet />)}
+      {setTemplates.filter(filterPokemon).length > visibleSets.length && <Button type="button" variant="outline" className="popular-more" onClick={() => setSetLimit((value) => value + 12)}>もっと見る</Button>}
+    </div>}
+
+    {tab === "builds" && <div className="popular-grid">
+      {visibleBuilds.map((template) => <BuildTemplateCard key={`${template.rank}-${template.memberNames.join("-")}`} template={template} onAdd={onAddBuild} />)}
+      {buildTemplates.filter(filterBuild).length > visibleBuilds.length && <Button type="button" variant="outline" className="popular-more" onClick={() => setBuildLimit((value) => value + 6)}>もっと見る</Button>}
+    </div>}
+
+    <p className="text-[11px] text-muted-foreground leading-relaxed">公開データをもとにした候補です。実際の型や努力値は自分の構築に合わせて調整してください。</p>
+  </div>;
+}
+
+function TemplateCard({ template, onApply, onAdd, showSet = false }: { template: MetaPokemonTemplate; onApply: (template: MetaPokemonTemplate) => void; onAdd: (template: MetaPokemonTemplate) => void; showSet?: boolean }) {
+  return <article className="template-card">
+    <div className="template-card-head">
+      <div className="template-rank">#{template.rank}</div>
+      <img className="template-pokemon-img" src={templateImageUrl(template.name)} alt={`${template.name}の画像`} loading="lazy" onError={(e) => { e.currentTarget.style.display = "none"; }} />
+      <div className="min-w-0">
+        <h4>{template.name}</h4>
+        {showSet && <p className="template-set-name">{template.setName}</p>}
+        <p className="text-xs text-muted-foreground">{formatUsage(template)}</p>
+      </div>
+    </div>
+    <div className="template-lines">
+      <p><b>持ち物:</b> {entryLabels(template.items).join("、")}</p>
+      <p><b>テラ:</b> {entryLabels(template.teraTypes).join("、")}</p>
+      <p><b>特性:</b> {entryLabels(template.abilities, "候補なし").join("、")}</p>
+      {showSet && <p><b>技候補:</b> {entryLabels(template.moves, "技データなし").join("、")}</p>}
+      <p><b>役割:</b> {template.roleTags.join("、")}</p>
+      {showSet && <p className="text-muted-foreground">{template.reason}</p>}
+    </div>
+    <div className="template-actions">
+      <Button type="button" className="btn-template-apply" onClick={() => onApply(template)}>フォームに反映</Button>
+      <Button type="button" className="btn-template-add" onClick={() => onAdd(template)}>保存リストに追加</Button>
+    </div>
+  </article>;
+}
+
+function BuildTemplateCard({ template, onAdd }: { template: MetaBuildTemplate; onAdd: (template: MetaBuildTemplate) => void }) {
+  return <article className="template-card template-card-build">
+    <div className="flex items-start justify-between gap-2">
+      <div className="min-w-0">
+        <h4>{template.name}</h4>
+        <p className="text-xs text-muted-foreground">{template.reason}</p>
+      </div>
+      <div className="template-rank">#{template.rank}</div>
+    </div>
+    <div className="build-sprites" aria-label="構築内のポケモン画像">
+      {template.members.map((member) => <img key={member.name} src={templateImageUrl(member.name)} alt={`${member.name}の画像`} loading="lazy" onError={(e) => { e.currentTarget.style.display = "none"; }} />)}
+    </div>
+    <p className="text-sm font-semibold break-words">{template.memberNames.join(" / ")}</p>
+    <p className="text-xs break-words">特徴：{template.feature}</p>
+    <div className="flex flex-wrap gap-1">{template.roleTags.map((tag) => <Badge key={tag} variant="secondary">{tag}</Badge>)}</div>
+    <Button type="button" className="btn-template-add w-full" onClick={() => onAdd(template)}>この構築を追加</Button>
+  </article>;
+}
+
 export default function Home() {
   const [userTeam, setUserTeam] = useState<Pokemon[]>([newPokemon()]);
   const [opponents, setOpponents] = useState<Pokemon[]>(Array.from({ length: 6 }, () => newPokemon()));
   const [form, setForm] = useState<Pokemon>(newPokemon());
   const [editingId, setEditingId] = useState<string | null>(null);
   const [metaData, setMetaData] = useState<MetaData | null>(null);
+  const [pendingBuild, setPendingBuild] = useState<MetaBuildTemplate | null>(null);
 
   useEffect(() => {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -214,11 +436,45 @@ export default function Home() {
   const addOrUpdate = () => {
     if (editingId) {
       setUserTeam((prev) => prev.map((p) => (p.id === editingId ? { ...form, id: editingId } : p)));
-    } else if (userTeam.length < 6) {
+    } else {
       setUserTeam((prev) => [...prev, normalizePokemon(form)]);
     }
     setForm(newPokemon());
     setEditingId(null);
+  };
+
+  const popularPokemonTemplates = useMemo(() => getPopularPokemonTemplates(metaData), [metaData]);
+  const popularSetTemplates = useMemo(() => getPokemonSetTemplates(metaData), [metaData]);
+  const popularBuildTemplates = useMemo(() => getPopularBuildTemplates(metaData), [metaData]);
+
+  const applyMetaTemplateToForm = (template: MetaPokemonTemplate) => {
+    const pokemon = createPokemonFromMetaTemplate(template);
+    setEditingId(null);
+    setForm(normalizePokemon({ ...pokemon, id: crypto.randomUUID(), memo: form.memo }));
+  };
+
+  const addMetaTemplateToList = (template: MetaPokemonTemplate) => {
+    setUserTeam((prev) => [...prev, normalizePokemon(createPokemonFromMetaTemplate(template))]);
+  };
+
+  const addBuildMembers = (template: MetaBuildTemplate, mode: "missing" | "all") => {
+    setUserTeam((prev) => {
+      const currentNames = new Set(prev.map((pokemon) => cleanName(pokemon.name)));
+      const additions = template.members
+        .filter((member) => mode === "all" || !currentNames.has(cleanName(member.name)))
+        .map((member) => normalizePokemon(createPokemonFromMetaTemplate(member)));
+      return [...prev, ...additions];
+    });
+    setPendingBuild(null);
+  };
+
+  const requestAddBuild = (template: MetaBuildTemplate) => {
+    const hasDuplicate = template.memberNames.some((name) => userTeam.some((pokemon) => cleanName(pokemon.name) === cleanName(name)));
+    if (hasDuplicate) {
+      setPendingBuild(template);
+      return;
+    }
+    addBuildMembers(template, "all");
   };
 
   const predictions = useMemo(() => opponents.filter(hasName).map((p) => {
@@ -269,14 +525,16 @@ export default function Home() {
         <div className="flex items-center gap-2"><Checkbox checked={form.canMega ?? false} onCheckedChange={(v) => setForm({ ...form, canMega: Boolean(v) })} /><span className="text-sm">メガシンカ可</span></div>
         <Textarea value={form.memo ?? ""} placeholder="メモ欄" onChange={(e) => setForm({ ...form, memo: e.target.value })} />
         <Button className="w-full h-11" onClick={addOrUpdate}>{editingId ? "更新する" : "登録する"}</Button>
-        <div className="text-xs text-muted-foreground text-center">{userTeam.length}/6 登録済み</div>
-        {userTeam.map((p) => <div key={p.id} className="border rounded-lg p-3 space-y-2">
+        <div className="text-xs text-muted-foreground text-center">{userTeam.length}匹 保存済み</div>
+        <PopularDataSection metaData={metaData} popularPokemon={popularPokemonTemplates} setTemplates={popularSetTemplates} buildTemplates={popularBuildTemplates} onApplyTemplate={applyMetaTemplateToForm} onAddTemplate={addMetaTemplateToList} onAddBuild={requestAddBuild} />
+        {userTeam.map((p, index) => <div key={p.id} className="border rounded-lg p-3 space-y-2">
           <div className="font-semibold">{p.name || "未設定"}</div>
           <div className="flex flex-wrap gap-1 text-xs">
-            {[p.type1, p.type2, p.ability ? `特性:${p.ability}` : "特性未設定", p.teraType && `テラ:${p.teraType}`, p.item && `持ち物:${p.item}`, p.roleMemo && `役割:${p.roleMemo}`, `優先度:${priorityLabel[p.priority ?? "medium"]}`, p.canMega ? "メガシンカ可" : "メガシンカ不可"].filter(Boolean).map((x, i) => <Badge key={i} variant="secondary">{x}</Badge>)}
+            {[p.type1, p.type2, p.ability ? `特性:${p.ability}` : "特性未設定", p.teraType && `テラ:${p.teraType}`, p.item && `持ち物:${p.item}`, p.roleMemo && `役割:${p.roleMemo}`, p.nature && `性格:${p.nature}`, p.evs ? `努力値:${p.evs}` : "努力値なし", `優先度:${priorityLabel[p.priority ?? "medium"]}`, p.canMega ? "メガシンカ可" : "メガシンカ不可"].filter(Boolean).map((x, i) => <Badge key={i} variant="secondary">{x}</Badge>)}
           </div>
+          {(p.moves ?? []).length > 0 && <p className="text-xs break-words">技：{(p.moves ?? []).join("、")}</p>}
           {p.memo && <p className="text-xs text-muted-foreground break-words">{p.memo}</p>}
-          <div className="flex gap-2"><Button size="sm" variant="outline" onClick={() => { setEditingId(p.id); setForm(p); }}>編集</Button><Button size="sm" variant="destructive" onClick={() => { if (window.confirm("このポケモンを削除しますか？")) { setUserTeam((prev) => prev.filter((x) => x.id !== p.id)); if (editingId === p.id) { setEditingId(null); setForm(newPokemon()); } } }}>削除</Button></div>
+          <div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" onClick={() => { setEditingId(p.id); setForm(p); }}>編集</Button><Button size="sm" variant="outline" onClick={() => setUserTeam((prev) => [...prev.slice(0, index + 1), normalizePokemon({ ...p, id: crypto.randomUUID(), name: `${p.name}（コピー）` }), ...prev.slice(index + 1)])}>複製</Button><Button size="sm" variant="outline" disabled={index === 0} onClick={() => setUserTeam((prev) => prev.map((x, idx) => idx === index - 1 ? prev[index] : idx === index ? prev[index - 1] : x))}>上へ</Button><Button size="sm" variant="outline" disabled={index === userTeam.length - 1} onClick={() => setUserTeam((prev) => prev.map((x, idx) => idx === index + 1 ? prev[index] : idx === index ? prev[index + 1] : x))}>下へ</Button><Button size="sm" variant="destructive" onClick={() => { if (window.confirm("このポケモンを削除しますか？")) { setUserTeam((prev) => prev.filter((x) => x.id !== p.id)); if (editingId === p.id) { setEditingId(null); setForm(newPokemon()); } } }}>削除</Button></div>
         </div>)}
       </CardContent></Card>
 
@@ -308,6 +566,17 @@ export default function Home() {
         </div>
         <div><p className="text-sm font-semibold mb-1">自分のおすすめ選出（上位3）</p>{recommendations.map((r) => <div key={r.id} className="border rounded-lg p-3 mb-2"><div className="flex justify-between"><span className="font-semibold">{r.name}</span><span className="text-sm">{r.score}点</span></div><div className="flex flex-wrap gap-1 my-1">{[r.ability && `特性:${r.ability}`, r.teraType && `テラ:${r.teraType}`, r.item && `持ち物:${r.item}`, r.roleMemo && `役割:${r.roleMemo}`, `優先度:${priorityLabel[r.priority ?? "medium"]}`].filter(Boolean).map((x, i) => <Badge key={i} variant="secondary">{x}</Badge>)}</div>{r.memo && <p className="text-xs text-muted-foreground break-words">{r.memo}</p>}<p className="text-xs text-muted-foreground break-words">内訳: {r.breakdown.join(" / ")}</p></div>)}</div>
       </CardContent></Card>
+      {pendingBuild && <div className="duplicate-dialog" role="dialog" aria-modal="true" aria-label="重複確認">
+        <div className="duplicate-dialog-card">
+          <h3>同じポケモンがいます</h3>
+          <p>同じポケモンが既に登録されています。未登録のポケモンだけ追加しますか？</p>
+          <div className="grid gap-2">
+            <Button type="button" className="btn-template-add" onClick={() => addBuildMembers(pendingBuild, "missing")}>未登録だけ追加</Button>
+            <Button type="button" className="btn-template-apply" onClick={() => addBuildMembers(pendingBuild, "all")}>すべて追加</Button>
+            <Button type="button" variant="outline" onClick={() => setPendingBuild(null)}>キャンセル</Button>
+          </div>
+        </div>
+      </div>}
     </div>
   </div>;
 }
