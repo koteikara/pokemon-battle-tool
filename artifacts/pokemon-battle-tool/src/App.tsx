@@ -3983,14 +3983,18 @@ function PopularDataSection({
   const pokemonList = (showMore ? popularPokemon.slice(0, 12) : popularPokemon.slice(0, 4));
   const setList = (showMore ? setTemplates.slice(0, 12) : setTemplates.slice(0, 4));
   const buildList = (showMore ? buildTemplates.slice(0, 8) : buildTemplates.slice(0, 3));
-  const isEmpty = hasMeta && popularPokemon.length === 0 && buildTemplates.length === 0;
+  const activeListIsEmpty =
+    (activeTab === "pokemon" && pokemonList.length === 0) ||
+    (activeTab === "sets" && setList.length === 0) ||
+    (activeTab === "builds" && buildList.length === 0);
+  const hasAnyTemplateData = popularPokemon.length > 0 || setTemplates.length > 0 || buildTemplates.length > 0;
 
   return (
     <section className="popular-template-panel" aria-label="補助データから追加">
       <div className="popular-pokemon-heading-row">
         <div>
           <div className="card-title">補助データから追加</div>
-          <p className="popular-pokemon-help">チャンピオンズ実装データと推定ロジックから、型テンプレを追加できます。</p>
+          <p className="popular-pokemon-help">公開構築データは使わず、役割・相性から仮説テンプレを出します。</p>
         </div>
         <span className="popular-pokemon-source">テンプレ提案あり</span>
       </div>
@@ -4001,9 +4005,9 @@ function PopularDataSection({
           <div>役割・相性からの推定で補助します。</div>
         </div>
       )}
-      {isEmpty && <div className="popular-status">表示できる補助データがありません。</div>}
+      {!hasAnyTemplateData && <div className="popular-status">現在表示できるデータがありません</div>}
 
-      {(hasMeta || buildTemplates.length > 0) && (
+      {hasAnyTemplateData && (
         <>
           <div className="popular-tabs" role="tablist" aria-label="補助データの種類">
             <button type="button" className={activeTab === "pokemon" ? "active" : ""} onClick={() => setActiveTab("pokemon")}>人気ポケモン</button>
@@ -4012,6 +4016,7 @@ function PopularDataSection({
           </div>
 
           <div className="popular-grid">
+            {activeListIsEmpty && <div className="popular-status popular-status-empty">現在表示できるデータがありません</div>}
             {activeTab === "pokemon" && pokemonList.map((template) => (
               <TemplateCard key={`${template.kind}-${template.name}-${template.rank}`} template={template} onApply={onApplyTemplate} onAdd={onAddTemplate} />
             ))}

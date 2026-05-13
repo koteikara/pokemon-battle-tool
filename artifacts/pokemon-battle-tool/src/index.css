@@ -2412,6 +2412,9 @@ button.result-tag {
   font-size: 0.875rem;
   font-weight: 700;
 }
+.popular-status-empty {
+  text-align: center;
+}
 .popular-tabs {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -2527,19 +2530,34 @@ button.result-tag {
   display: grid;
   gap: 10px;
 }
+.template-card-build .template-card-head {
+  grid-template-columns: auto minmax(0, 1fr);
+}
+.template-card-build .build-sprites {
+  grid-column: 1 / -1;
+  grid-row: 2;
+}
 .build-sprites {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 4px;
+  grid-template-columns: repeat(3, 48px);
+  gap: 8px;
   align-items: center;
+  justify-content: center;
+  width: min(100%, 180px);
   padding: 8px;
   border: 2px dashed var(--color-outline);
   border-radius: 14px;
   background: #f8fafc;
 }
-.build-sprites img {
-  width: 100%;
-  max-height: 54px;
+.build-sprites .pokemon-portrait {
+  --portrait-size: 48px;
+  border-radius: 12px;
+  background: #fff;
+}
+.build-sprites .pokemon-portrait img {
+  width: 88%;
+  height: 88%;
+  max-height: none;
   object-fit: contain;
 }
 .duplicate-dialog {
@@ -2580,9 +2598,19 @@ button.result-tag {
     grid-template-columns: auto 58px minmax(0, 1fr);
     gap: 8px;
   }
+  .template-card-build .template-card-head {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
   .template-pokemon-img {
     width: 58px;
     height: 58px;
+  }
+  .build-sprites {
+    grid-template-columns: repeat(3, 42px);
+    width: min(100%, 162px);
+  }
+  .build-sprites .pokemon-portrait {
+    --portrait-size: 42px;
   }
   .popular-tabs button {
     font-size: 0.7rem;
