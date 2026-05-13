@@ -9,6 +9,7 @@ import {
 import { MOVES } from "./lib/moves";
 import {
   findMetaPokemon,
+  getMetaDataOriginLabel,
   hasUsableMetaData,
   loadMetaData,
   type MetaData,
@@ -1215,6 +1216,7 @@ type OppPrediction = {
   teraCandidates: MetaUsageEntry[];
   metaEntry: MetaPokemonEntry | null;
   scoreBreakdown: ScoreBreakdown[];
+  dataOriginLabel: string;
 };
 
 type PokemonMeta = { roles: string[]; note: string; caution: string };
@@ -1383,7 +1385,7 @@ function buildMetaReason(
 ) {
   const reasons: string[] = [];
   if (parts.some((part) => part.label === "採用傾向")) {
-    reasons.push("上位構築で採用が多いです");
+    reasons.push("補助データ上で採用傾向があります");
   }
   if (partnerMatches.length > 0) {
     reasons.push(
@@ -1393,10 +1395,10 @@ function buildMetaReason(
         .join("・")}と同時採用されやすいです`,
     );
   }
-  if (hasMatchingPattern) reasons.push("似た並びが公開データにあります");
+  if (hasMatchingPattern) reasons.push("公開パターンに近い並びがあります");
   return reasons.length > 0
     ? `${reasons.join("。")}。`
-    : "公開データ上の根拠は少なめです。";
+    : "公開データ上では未確認です。役割・種族値・技傾向から推定します。";
 }
 
 function buildMetaScoreParts(
@@ -1468,7 +1470,7 @@ function buildMetaScoreParts(
         ? 1
         : 0;
     scoreParts.push({
-      label: "構築一致",
+      label: "並び傾向",
       points: clampMetaScore(matchingPattern.overlap - 1 + rankBonus),
     });
   }
@@ -1589,6 +1591,7 @@ function predictOpponent(
       teraCandidates: metaScore.teraCandidates,
       metaEntry: metaScore.metaEntry,
       scoreBreakdown,
+      dataOriginLabel: getMetaDataOriginLabel(metaData, metaScore.metaEntry),
     };
   });
 
@@ -1607,6 +1610,7 @@ type MyRecommendation = {
   strengths: string[];
   caution: string;
   breakdown: ScoreBreakdown[];
+  dataOriginLabel: string;
 };
 
 function hasAnyText(source: string, patterns: string[]): boolean {
@@ -1721,7 +1725,7 @@ function buildRecommendationStrengths(
     strengths.push("クッション");
   if (hasPositiveBreakdown(breakdown, ["抜群", "等倍以上", "打点"]))
     strengths.push("タイプ有利");
-  if (player.pickPriority === "高") strengths.push("採用傾向あり");
+  if (player.pickPriority === "高") strengths.push("補助データあり");
   player.roleTags.forEach((tag) => strengths.push(tag));
 
   return uniqueLimited(strengths, 6);
@@ -1749,9 +1753,9 @@ function buildRecommendationReason(
     reasons.push(
       "登録された役割タグから、この対戦で使いやすい型と判断されています。",
     );
-  if (hasPositiveBreakdown(breakdown, ["採用傾向あり"]))
+  if (hasPositiveBreakdown(breakdown, ["補助データあり"]))
     reasons.push(
-      "公開データ上でも採用傾向があり、実戦で使われやすい型として評価されています。",
+      "チャンピオンズ実装データに基づく補助情報と役割から評価しています。",
     );
   if (hasPositiveBreakdown(breakdown, ["優先度 高"]))
     reasons.push("登録情報で優先度が高く、選出候補として評価されています。");
@@ -2028,7 +2032,7 @@ function scorePlayerPokemon(
   if (apiData) breakdown.push(...getPokemonApiRoleBonuses(apiData));
 
   if (findMetaPokemon(metaData, player.name))
-    breakdown.push({ label: "採用傾向あり", points: 3 });
+    breakdown.push({ label: "補助データあり", points: 3 });
 
   if (hasAnyText(roleText, ["アタッカー"]))
     breakdown.push({ label: "攻撃役", points: 8 });
@@ -2219,6 +2223,7 @@ function scorePlayerPokemon(
     strengths,
     caution,
     breakdown,
+    dataOriginLabel: getMetaDataOriginLabel(metaData, findMetaPokemon(metaData, player.name)),
   };
 }
 
@@ -2325,7 +2330,7 @@ function myPokemonFromMetaTemplate(template: MetaPokemonTemplate): MyPokemon {
     teraType: pokemon.teraType ?? "",
     roleTags: pokemon.roleTags ?? [],
     pickPriority: pokemon.priority ? priorityMap[pokemon.priority] : "",
-    memo: `${pokemon.memo ?? "公開データから追加"}：${template.reason}`,
+    memo: `${pokemon.memo ?? "補助データから追加"}：${template.reason}`,
   };
 }
 
@@ -3647,7 +3652,7 @@ function RegisterScreen({
   const canSave = form.name.trim() !== "" && isAllowed(form.name) && evOk;
   const popularPokemonTemplates = useMemo(() => getPopularPokemonTemplates(metaData), [metaData]);
   const popularSetTemplates = useMemo(() => getPokemonSetTemplates(metaData), [metaData]);
-  const popularBuildTemplates = useMemo(() => getPopularBuildTemplates(metaData), [metaData]);
+  const popularBuildTemplates = useMemo(() => getPopularBuildTemplates(metaData, myTeam), [metaData, myTeam]);
 
   useEffect(() => {
     let cancelled = false;
@@ -3981,29 +3986,29 @@ function PopularDataSection({
   const isEmpty = hasMeta && popularPokemon.length === 0 && buildTemplates.length === 0;
 
   return (
-    <section className="popular-template-panel" aria-label="公開データから追加">
+    <section className="popular-template-panel" aria-label="補助データから追加">
       <div className="popular-pokemon-heading-row">
         <div>
-          <div className="card-title">公開データから追加</div>
-          <p className="popular-pokemon-help">Championsの公開採用データが使えると、型や構築を追加できます。</p>
+          <div className="card-title">補助データから追加</div>
+          <p className="popular-pokemon-help">チャンピオンズ実装データと推定ロジックから、型テンプレを追加できます。</p>
         </div>
-        {hasMeta ? <span className="popular-pokemon-source">Championsデータ反映済み</span> : null}
+        <span className="popular-pokemon-source">テンプレ提案あり</span>
       </div>
 
       {!hasMeta && (
         <div className="popular-status">
-          <div>公開採用データはまだ利用できません。</div>
-          <div>現在はタイプ相性・種族値・登録情報をもとに予測しています。</div>
+          <div>公開構築データは使いません。</div>
+          <div>役割・相性からの推定で補助します。</div>
         </div>
       )}
-      {isEmpty && <div className="popular-status">表示できる公開データがありません。</div>}
+      {isEmpty && <div className="popular-status">表示できる補助データがありません。</div>}
 
-      {hasMeta && (
+      {(hasMeta || buildTemplates.length > 0) && (
         <>
-          <div className="popular-tabs" role="tablist" aria-label="公開データの種類">
+          <div className="popular-tabs" role="tablist" aria-label="補助データの種類">
             <button type="button" className={activeTab === "pokemon" ? "active" : ""} onClick={() => setActiveTab("pokemon")}>人気ポケモン</button>
             <button type="button" className={activeTab === "sets" ? "active" : ""} onClick={() => setActiveTab("sets")}>型テンプレ</button>
-            <button type="button" className={activeTab === "builds" ? "active" : ""} onClick={() => setActiveTab("builds")}>構築セット</button>
+            <button type="button" className={activeTab === "builds" ? "active" : ""} onClick={() => setActiveTab("builds")}>提案テンプレ</button>
           </div>
 
           <div className="popular-grid">
@@ -4075,7 +4080,7 @@ function BuildTemplateCard({ template, onAdd }: { template: MetaBuildTemplate; o
         </div>
         <div>
           <h4>{template.name}</h4>
-          <div className="template-set-name">{template.rating ? `レート${Math.round(template.rating)}` : "公開構築"}</div>
+          <div className="template-set-name">{template.rating ? `レート${Math.round(template.rating)}` : "テンプレ提案"}</div>
         </div>
       </div>
       <div className="template-lines">
@@ -4572,11 +4577,11 @@ function BattleScreen({
         <div className="popular-pokemon-section">
           <div className="popular-pokemon-heading-row">
             <div>
-              <div className="popular-pokemon-title">よく使われるポケモン</div>
+              <div className="popular-pokemon-title">参考ポケモン</div>
               <div className="popular-pokemon-help">タップすると空いている枠に追加します</div>
             </div>
             <span className="popular-pokemon-source">
-              {popularCandidates[0]?.fromMeta ? "meta順" : "固定候補"}
+              {popularCandidates[0]?.fromMeta ? "補助データ順" : "固定候補"}
             </span>
           </div>
           <div className="popular-pokemon-grid">
@@ -4623,8 +4628,8 @@ function BattleScreen({
         <div className="result-section-title">相手の選出予測</div>
         <div className="result-meta-note">
           {hasUsableMetaData(publicMetaData)
-            ? "入力された相手パーティから、Champions公開データ上の傾向も参考に選出されやすい3匹を予測します。"
-            : "公開採用データはまだ利用できません。現在はタイプ相性・種族値・登録情報をもとに予測しています。"}
+            ? "入力された相手パーティから、チャンピオンズ実装データに基づく補助情報と役割・相性で3匹を予測します。"
+            : "公開構築データは使いません。役割・相性からの推定で補助します。"}
         </div>
         {validCount === 0 ? (
           <div className="result-empty">
@@ -4674,7 +4679,7 @@ function BattleScreen({
                       <span className="reason-note-value">
                         {formatMetaUsageList(
                           p.itemCandidates,
-                          p.metaEntry ? "持ち物データなし" : "公開データなし",
+                          p.metaEntry ? "公開データ上では未確認" : "公開データ上では未確認",
                         )}
                       </span>
                     </div>
@@ -4683,13 +4688,25 @@ function BattleScreen({
                       <span className="reason-note-value">
                         {formatMetaUsageList(
                           p.teraCandidates,
-                          p.metaEntry ? "テラデータなし" : "公開データなし",
+                          p.metaEntry ? "公開データ上では未確認" : "公開データ上では未確認",
                         )}
                       </span>
                     </div>
                     <div className="reason-note-row">
-                      <span className="reason-note-label">役割</span>
+                      <span className="reason-note-label">役割タグ</span>
                       <span className="reason-note-value">{p.role}</span>
+                    </div>
+                    <div className="reason-note-row">
+                      <span className="reason-note-label">スコア内訳</span>
+                      <span className="reason-note-value reason-note-score">
+                        {p.scoreBreakdown
+                          .map((b) => `${b.label} ${b.points > 0 ? `+${b.points}` : b.points}`)
+                          .join(" / ")}
+                      </span>
+                    </div>
+                    <div className="reason-note-row">
+                      <span className="reason-note-label">データ由来</span>
+                      <span className="reason-note-value">{p.dataOriginLabel}</span>
                     </div>
                   </CollapsibleReasonNote>
                   <div className="result-tags result-tags--score-breakdown">
@@ -4741,7 +4758,7 @@ function BattleScreen({
         ) : (
           <>
             <div className="result-meta-note">
-              相手の予測上位3匹に対して、登録済みポケモンからおすすめを表示します。
+              相手の予測上位3匹に対して、役割・相性からの推定でおすすめを表示します。
             </div>
             {recommendations.map((r, i) => (
               <div
@@ -4813,6 +4830,10 @@ function BattleScreen({
                           )
                           .join(" / ")}
                       </span>
+                    </div>
+                    <div className="reason-note-row">
+                      <span className="reason-note-label">データ由来</span>
+                      <span className="reason-note-value">{r.dataOriginLabel}</span>
                     </div>
                   </CollapsibleReasonNote>
                   <div className="result-tags recommendation-ability">
