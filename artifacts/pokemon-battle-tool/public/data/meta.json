@@ -1,7 +1,7 @@
 {
   "source": "champions-derived",
   "game": "pokemon-champions",
-  "updatedAt": "2026-05-18T21:01:10.717Z",
+  "updatedAt": "2026-05-19T21:10:42.085Z",
   "pokemon": {},
   "moves": {},
   "abilities": {},
@@ -3415,6 +3415,19 @@
     },
     {
       "members": [
+        "キラフロル",
+        "ミミロップ",
+        "スコヴィラン",
+        "イダイトウ",
+        "カビゴン",
+        "アシレーヌ"
+      ],
+      "rank": 513,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
         "ハッサム",
         "ロトム",
         "イダイトウ",
@@ -3891,19 +3904,6 @@
         "カビゴン"
       ],
       "rank": 607,
-      "rating": 0,
-      "source": "public-pattern"
-    },
-    {
-      "members": [
-        "フラエッテ",
-        "ガブリアス",
-        "イダイトウ",
-        "ドドゲザン",
-        "ハッサム",
-        "ラウドボーン"
-      ],
-      "rank": 609,
       "rating": 0,
       "source": "public-pattern"
     },
