@@ -1,7 +1,7 @@
 {
   "source": "champions-derived",
   "game": "pokemon-champions",
-  "updatedAt": "2026-05-23T20:37:51.230Z",
+  "updatedAt": "2026-05-24T20:41:28.411Z",
   "pokemon": {},
   "moves": {},
   "abilities": {},
@@ -3519,6 +3519,19 @@
     },
     {
       "members": [
+        "ルカリオ",
+        "サザンドラ",
+        "リザードン",
+        "ミミッキュ",
+        "ガブリアス",
+        "フラエッテ"
+      ],
+      "rank": 530,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
         "オオニューラ",
         "キラフロル",
         "カメックス",
@@ -3891,19 +3904,6 @@
         "ガブリアス"
       ],
       "rank": 604,
-      "rating": 0,
-      "source": "public-pattern"
-    },
-    {
-      "members": [
-        "ブラッキー",
-        "マフォクシー",
-        "アーマーガア",
-        "アシレーヌ",
-        "ガブリアス",
-        "ゲンガー"
-      ],
-      "rank": 605,
       "rating": 0,
       "source": "public-pattern"
     },
@@ -4710,6 +4710,19 @@
         "ニンフィア"
       ],
       "rank": 997,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "マフォクシー",
+        "ガブリアス",
+        "ドドゲザン",
+        "イダイトウ",
+        "バイバニラ",
+        "ニンフィア"
+      ],
+      "rank": 1386,
       "rating": 0,
       "source": "public-pattern"
     },
