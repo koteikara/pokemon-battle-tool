@@ -1,7 +1,7 @@
 {
   "source": "champions-derived",
   "game": "pokemon-champions",
-  "updatedAt": "2026-05-28T21:49:29.750Z",
+  "updatedAt": "2026-05-29T21:43:07.252Z",
   "pokemon": {},
   "moves": {},
   "abilities": {},
@@ -4013,6 +4013,19 @@
     },
     {
       "members": [
+        "プテラ",
+        "スコヴィラン",
+        "オオニューラ",
+        "イダイトウ",
+        "ニンフィア",
+        "リキキリン"
+      ],
+      "rank": 25,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
         "リザードン",
         "エルフーン",
         "ガブリアス",
@@ -4216,6 +4229,19 @@
         "イダイトウ"
       ],
       "rank": 144,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "クエスパトラ",
+        "オオニューラ",
+        "リザードン",
+        "ブリジュラス",
+        "ニンフィア",
+        "ガオガエン"
+      ],
+      "rank": 148,
       "rating": 0,
       "source": "public-pattern"
     },
