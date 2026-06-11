@@ -8,17 +8,24 @@ export type WorldCupMatch = {
   venue: string;
   homeTeam: string;
   awayTeam: string;
+  homeFlag?: string;
+  awayFlag?: string;
   homeScore: number | null;
   awayScore: number | null;
   status: WorldCupMatchStatus;
   statusText: string;
   sourceUrl: string;
+  groupName?: string;
+  stageName?: string;
+  broadcasters?: string[];
 };
 
 type EspnTeam = {
   displayName?: string;
   shortDisplayName?: string;
   name?: string;
+  abbreviation?: string;
+  logos?: Array<{ href?: string }>;
 };
 
 type EspnCompetitor = {
@@ -40,6 +47,8 @@ type EspnCompetition = {
   competitors?: EspnCompetitor[];
   venue?: { fullName?: string };
   status?: EspnStatus;
+  broadcasts?: Array<{ names?: string[] }>;
+  notes?: Array<{ headline?: string; type?: string }>;
 };
 
 type EspnEvent = {
@@ -47,6 +56,7 @@ type EspnEvent = {
   date?: string;
   name?: string;
   shortName?: string;
+  season?: { slug?: string; type?: number };
   competitions?: EspnCompetition[];
 };
 
@@ -76,6 +86,10 @@ function teamName(competitor: EspnCompetitor | undefined, fallback: string) {
   );
 }
 
+function logoUrl(competitor: EspnCompetitor | undefined) {
+  return competitor?.team?.logos?.find((logo) => logo.href)?.href;
+}
+
 function statusFromEspn(status: EspnStatus | undefined): WorldCupMatchStatus {
   const type = status?.type;
   if (type?.completed) return "final";
@@ -83,6 +97,12 @@ function statusFromEspn(status: EspnStatus | undefined): WorldCupMatchStatus {
   if (type?.state === "post") return "final";
   if (type?.state === "pre") return "scheduled";
   return "scheduled";
+}
+
+function broadcastNames(competition: EspnCompetition) {
+  return Array.from(
+    new Set((competition.broadcasts ?? []).flatMap((broadcast) => broadcast.names ?? [])),
+  );
 }
 
 function parseEvent(event: EspnEvent): WorldCupMatch | null {
@@ -95,12 +115,15 @@ function parseEvent(event: EspnEvent): WorldCupMatch | null {
   if (!home || !away) return null;
 
   const status = statusFromEspn(competition.status);
+  const stageName = competition.notes?.find((note) => note.headline)?.headline;
   return {
     id: event.id ?? `${event.date ?? "date"}-${teamName(home, "home")}-${teamName(away, "away")}`,
     date: event.date ?? "",
     venue: competition.venue?.fullName ?? "会場未定",
     homeTeam: teamName(home, "ホーム"),
     awayTeam: teamName(away, "アウェイ"),
+    homeFlag: logoUrl(home),
+    awayFlag: logoUrl(away),
     homeScore: toScore(home.score),
     awayScore: toScore(away.score),
     status,
@@ -109,6 +132,9 @@ function parseEvent(event: EspnEvent): WorldCupMatch | null {
       competition.status?.type?.shortDetail ??
       (status === "final" ? "試合終了" : "予定"),
     sourceUrl: "ESPN public scoreboard API",
+    groupName: event.season?.slug,
+    stageName,
+    broadcasters: broadcastNames(competition),
   };
 }
 
