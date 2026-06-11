@@ -44,9 +44,16 @@ import {
   isPokemonType,
   type PokemonType,
 } from "./lib/typeMatchups";
+import {
+  fetchWorldCupMatches,
+  getMatchWinner,
+  getPickLabel,
+  type WorldCupMatch,
+  type WorldCupPredictionPick,
+} from "./lib/worldCupResults";
 
 type Screen = "register" | "battle";
-type BottomView = "home" | "saved" | "guide";
+type BottomView = "home" | "saved" | "worldCup" | "guide";
 
 const HEADER_STADIUM_BG_URL = `${import.meta.env.BASE_URL}header-stadium-bg.png`;
 const HEADER_TITLE_URL = `${import.meta.env.BASE_URL}header-title-battle.png`;
@@ -3000,6 +3007,7 @@ export default function App() {
               metaData={savedCardMetaData}
             />
           )}
+          {bottomView === "worldCup" && <WorldCupScreen />}
           {bottomView === "guide" && <GuideScreen />}
           {pendingBuildTemplate && (
             <div className="duplicate-dialog" role="dialog" aria-modal="true" aria-label="重複確認">
@@ -3035,6 +3043,16 @@ export default function App() {
           >
             <span aria-hidden="true">▤</span>
             <span>保存リスト</span>
+          </button>
+          <button
+            type="button"
+            className={`bottom-nav-item${bottomView === "worldCup" ? " bottom-nav-item--active" : ""}`}
+            onClick={() => setBottomView("worldCup")}
+            aria-current={bottomView === "worldCup" ? "page" : undefined}
+            aria-pressed={bottomView === "worldCup"}
+          >
+            <span aria-hidden="true">⚽</span>
+            <span>W杯予想</span>
           </button>
           <button
             type="button"
