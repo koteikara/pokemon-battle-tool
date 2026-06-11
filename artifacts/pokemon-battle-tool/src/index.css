@@ -995,7 +995,7 @@ button.result-tag {
   position: sticky;
   bottom: 10px;
   z-index: 50;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   margin: 16px 0 0;
   padding: 8px;
   border: 4px solid var(--color-border-strong);
@@ -2615,5 +2615,202 @@ button.result-tag {
   .popular-tabs button {
     font-size: 0.7rem;
     padding-inline: 3px;
+  }
+}
+
+.worldcup-screen {
+  display: grid;
+  gap: 16px;
+}
+.worldcup-hero {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+  border: 4px solid var(--color-border-strong);
+  border-radius: 20px;
+  background: linear-gradient(135deg, #fff, var(--color-screen-dim));
+  box-shadow: var(--shadow-hard);
+}
+.worldcup-kicker {
+  margin-bottom: 4px;
+  color: var(--color-pokedex-red);
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+.worldcup-ball {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 64px;
+  height: 64px;
+  border: 4px solid var(--color-border-strong);
+  border-radius: 50%;
+  background: var(--color-card);
+  box-shadow: var(--shadow-hard-small);
+  font-size: 2rem;
+}
+.worldcup-controls,
+.worldcup-match-head,
+.worldcup-result-line,
+.worldcup-prediction-row,
+.section-title-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.worldcup-controls {
+  flex-wrap: wrap;
+  padding: 12px;
+  border: 3px solid var(--color-border-strong);
+  border-radius: 16px;
+  background: var(--color-card);
+  box-shadow: var(--shadow-hard-small);
+}
+.worldcup-source-note {
+  padding: 10px 12px;
+  border: 2px dashed var(--color-outline);
+  border-radius: 14px;
+  background: #fff7ed;
+  color: var(--color-ink-soft);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+.worldcup-predictors,
+.worldcup-match-list {
+  display: grid;
+  gap: 12px;
+}
+.section-title-row {
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+.section-title-row h3 {
+  font-family: var(--font-game);
+  font-size: 1.1rem;
+}
+.worldcup-predictor-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.worldcup-predictor-card,
+.worldcup-match-card {
+  min-width: 0;
+  padding: 12px;
+  border: 3px solid var(--color-border-strong);
+  border-radius: 18px;
+  background: var(--color-card);
+  box-shadow: var(--shadow-hard-small);
+}
+.worldcup-predictor-card {
+  display: grid;
+  gap: 8px;
+}
+.worldcup-score-chip,
+.worldcup-status,
+.worldcup-check {
+  justify-self: start;
+  border: 2px solid var(--color-border-strong);
+  border-radius: var(--radius-chip);
+  padding: 4px 10px;
+  background: var(--color-yellow);
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+.worldcup-match-card {
+  display: grid;
+  gap: 12px;
+}
+.worldcup-match-head {
+  align-items: flex-start;
+  justify-content: space-between;
+}
+.worldcup-match-time {
+  color: var(--color-pokedex-red);
+  font-family: var(--font-mono);
+  font-weight: 900;
+}
+.worldcup-match-head h3 {
+  font-family: var(--font-game);
+  font-size: clamp(1.1rem, 4vw, 1.45rem);
+  overflow-wrap: anywhere;
+}
+.worldcup-match-head p {
+  color: var(--color-muted);
+  font-weight: 700;
+}
+.worldcup-status--in {
+  background: var(--color-green);
+  color: #fff;
+}
+.worldcup-status--final {
+  background: var(--color-pokedex-red);
+  color: #fff;
+}
+.worldcup-result-line {
+  justify-content: space-between;
+  flex-wrap: wrap;
+  padding: 10px;
+  border: 3px solid var(--color-border-strong);
+  border-radius: 14px;
+  background: var(--color-screen);
+}
+.worldcup-result-line span {
+  font-family: var(--font-mono);
+  font-weight: 900;
+}
+.worldcup-prediction-table {
+  display: grid;
+  gap: 8px;
+}
+.worldcup-prediction-row {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(92px, 0.8fr) minmax(140px, 1.4fr) auto;
+  padding: 8px;
+  border: 2px solid var(--color-border-subtle);
+  border-radius: 12px;
+  background: #fff;
+}
+.worldcup-predictor-name {
+  min-width: 0;
+  font-weight: 900;
+  overflow-wrap: anywhere;
+}
+.worldcup-check {
+  background: var(--color-screen-dim);
+}
+.worldcup-check--hit {
+  background: var(--color-green);
+  color: #fff;
+}
+.worldcup-check--miss {
+  background: var(--color-stat-a);
+}
+.empty-notice--danger {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+@media (max-width: 720px) {
+  .worldcup-hero,
+  .worldcup-match-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .worldcup-predictor-grid {
+    grid-template-columns: 1fr;
+  }
+  .worldcup-prediction-row {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+  .worldcup-check {
+    justify-self: stretch;
+    text-align: center;
   }
 }
