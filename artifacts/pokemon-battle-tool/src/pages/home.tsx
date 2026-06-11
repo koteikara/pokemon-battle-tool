@@ -243,16 +243,16 @@ function scoreWithMeta(pokemon: Pokemon, opponents: Pokemon[], metaData: MetaDat
     .sort((a, b) => b.overlap - a.overlap || (a.pattern.rank || 999999) - (b.pattern.rank || 999999))[0];
 
   if (matchingPattern) {
-    const rankBonus = matchingPattern.pattern.rank > 0 && matchingPattern.pattern.rank <= 200 ? 1 : 0;
+    const rankBonus = (matchingPattern.pattern.rank ?? 999999) > 0 && (matchingPattern.pattern.rank ?? 999999) <= 200 ? 1 : 0;
     scoreParts.push({ label: "上位構築", points: clampScore(matchingPattern.overlap - 1 + rankBonus), detail: `${matchingPattern.overlap}匹が同じ並び` });
   }
 
   if ((metaEntry?.items?.[0]?.rate ?? 0) >= 20) {
-    scoreParts.push({ label: "持ち物傾向", points: 1, detail: `${metaEntry?.items[0].name}が多い` });
+    scoreParts.push({ label: "持ち物傾向", points: 1, detail: `${metaEntry?.items?.[0]?.name ?? "持ち物"}が多い` });
   }
 
   if ((metaEntry?.teraTypes?.[0]?.rate ?? 0) >= 20) {
-    scoreParts.push({ label: "テラ傾向", points: 1, detail: `${metaEntry?.teraTypes[0].name}が多い` });
+    scoreParts.push({ label: "テラ傾向", points: 1, detail: `${metaEntry?.teraTypes?.[0]?.name ?? "テラ"}が多い` });
   }
 
   const score = scoreParts.reduce((sum, part) => sum + part.points, 0);

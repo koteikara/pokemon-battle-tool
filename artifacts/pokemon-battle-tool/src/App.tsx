@@ -1466,7 +1466,7 @@ function buildMetaScoreParts(
     )[0];
   if (matchingPattern) {
     const rankBonus =
-      matchingPattern.pattern.rank > 0 && matchingPattern.pattern.rank <= 200
+      (matchingPattern.pattern.rank ?? 999999) > 0 && (matchingPattern.pattern.rank ?? 999999) <= 200
         ? 1
         : 0;
     scoreParts.push({
@@ -3232,6 +3232,7 @@ function SavedListScreen({
     </section>
   );
 }
+
 
 function GuideScreen() {
   return (

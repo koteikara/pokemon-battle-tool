@@ -55,6 +55,13 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    rollupOptions: {
+      input: {
+        main: path.resolve(import.meta.dirname, "index.html"),
+        worldCup: path.resolve(import.meta.dirname, "world-cup.html"),
+        worldCupResults: path.resolve(import.meta.dirname, "world-cup-results.html"),
+      },
+    },
   },
   server: {
     port,
