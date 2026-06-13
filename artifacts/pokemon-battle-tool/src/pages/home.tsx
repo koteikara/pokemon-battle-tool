@@ -202,7 +202,7 @@ function createShortReason(pokemonName: string, scoreParts: ScorePart[], metaEnt
   const partner = metaEntry?.partners?.[0]?.name;
   if (labels.includes("上位構築") && partner) return `上位構築で見かけ、${partner}と同時採用の傾向が多いです。`;
   if (labels.includes("同時採用") && partner) return `${partner}といっしょに採用される傾向が多いです。`;
-  if (labels.includes("採用率")) return `${pokemonName}は公開データで採用が多い傾向です。`;
+  if (labels.includes("採用傾向")) return `${pokemonName}は公開データで採用が多い傾向です。`;
   return "入力メモから出てきそうな型を予想しています。";
 }
 
@@ -222,7 +222,7 @@ function scoreWithMeta(pokemon: Pokemon, opponents: Pokemon[], metaData: MetaDat
 
   if (metaEntry?.usageCount) {
     const usagePoints = clampScore(Math.ceil((metaEntry.usageCount / maxUsage) * 5));
-    scoreParts.push({ label: "採用率", points: usagePoints, detail: `採用数${metaEntry.usageCount}` });
+    scoreParts.push({ label: "採用傾向", points: usagePoints, detail: `採用数${metaEntry.usageCount}` });
   }
 
   const partnerMatches = metaEntry?.partners?.filter((partner) => opponentNames.includes(cleanName(partner.name))) ?? [];
@@ -243,16 +243,16 @@ function scoreWithMeta(pokemon: Pokemon, opponents: Pokemon[], metaData: MetaDat
     .sort((a, b) => b.overlap - a.overlap || (a.pattern.rank || 999999) - (b.pattern.rank || 999999))[0];
 
   if (matchingPattern) {
-    const rankBonus = matchingPattern.pattern.rank > 0 && matchingPattern.pattern.rank <= 200 ? 1 : 0;
+    const rankBonus = (matchingPattern.pattern.rank ?? 999999) > 0 && (matchingPattern.pattern.rank ?? 999999) <= 200 ? 1 : 0;
     scoreParts.push({ label: "上位構築", points: clampScore(matchingPattern.overlap - 1 + rankBonus), detail: `${matchingPattern.overlap}匹が同じ並び` });
   }
 
   if ((metaEntry?.items?.[0]?.rate ?? 0) >= 20) {
-    scoreParts.push({ label: "持ち物傾向", points: 1, detail: `${metaEntry?.items[0].name}が多い` });
+    scoreParts.push({ label: "持ち物傾向", points: 1, detail: `${metaEntry?.items?.[0]?.name ?? "持ち物"}が多い` });
   }
 
   if ((metaEntry?.teraTypes?.[0]?.rate ?? 0) >= 20) {
-    scoreParts.push({ label: "テラ傾向", points: 1, detail: `${metaEntry?.teraTypes[0].name}が多い` });
+    scoreParts.push({ label: "テラ傾向", points: 1, detail: `${metaEntry?.teraTypes?.[0]?.name ?? "テラ"}が多い` });
   }
 
   const score = scoreParts.reduce((sum, part) => sum + part.points, 0);

@@ -24,6 +24,7 @@ export type MetaPokemonTemplate = {
 export type MetaBuildTemplate = {
   name: string;
   rank: number;
+  source: "template" | "public-pattern";
   rating?: number;
   members: MetaPokemonTemplate[];
   memberNames: string[];
@@ -33,6 +34,7 @@ export type MetaBuildTemplate = {
 };
 
 type UnknownRecord = Record<string, unknown>;
+type RegisteredPokemonLike = { name: string; roleTags?: string[]; type1?: string; type2?: string; teraType?: string; };
 
 const SUPPORT_MOVES = ["ステルスロック", "でんじは", "おにび", "トリックルーム", "ひかりのかべ", "リフレクター", "このゆびとまれ", "てだすけ", "ちょうはつ", "あくび"];
 const BULKY_MOVES = ["じこさいせい", "はねやすめ", "なまける", "まもる", "どくどく", "やどりぎのタネ", "みがわり"];
@@ -80,7 +82,7 @@ const getPokemonEntries = (meta: MetaData | null | undefined) => {
   return Object.entries(meta.pokemon).filter(([name]) => name.trim().length > 0);
 };
 
-const makeTemplate = (name: string, entry: MetaPokemonEntry, rank: number, maxUsage: number, kind: "pokemon" | "set" = "pokemon"): MetaPokemonTemplate => {
+const makeTemplate = (name: string, entry: Partial<MetaPokemonEntry>, rank: number, maxUsage: number, kind: "pokemon" | "set" = "pokemon"): MetaPokemonTemplate => {
   const raw = asRecord(entry);
   const items = pickUsageList(raw, ["items", "itemCandidates", "heldItems"]);
   const teraTypes = pickUsageList(raw, ["teraTypes", "teras", "teraTypeCandidates"]);
@@ -146,7 +148,7 @@ export function getPopularBuildTemplates(meta: MetaData | null | undefined): Met
   const patterns = hasUsableMetaData(meta) && Array.isArray(meta.teamPatterns) ? meta.teamPatterns : [];
   const popular = getPopularPokemonTemplates(meta);
   const map = new Map(popular.map((template) => [normalizeName(template.name), template]));
-  return patterns.map((pattern: MetaTeamPattern, index) => {
+  const publicPatterns = patterns.map((pattern: MetaTeamPattern, index) => {
     const members = (Array.isArray(pattern.members) ? pattern.members : [])
       .map((name) => map.get(normalizeName(name)) ?? makeTemplate(name, { usageCount: 0, items: [], teraTypes: [], partners: [] }, 9999, 1))
       .filter((template) => template.name.trim().length > 0)
@@ -158,15 +160,91 @@ export function getPopularBuildTemplates(meta: MetaData | null | undefined): Met
     return {
       name: `${feature}構築`,
       rank,
+      source: "public-pattern" as const,
       rating,
       members,
       memberNames: members.map((member) => member.name),
       roleTags,
       feature: `${roleTags.slice(0, 3).join("・") || "汎用"}を中心にした並びです。`,
-      reason: `公開データの構築パターン${rank}位${rating ? `（レート${Math.round(rating)}）` : ""}から作成。`,
+      reason: `公開パターン${rank}位${rating ? `（レート${Math.round(rating)}）` : ""}から作成。`,
     };
-  }).filter((template) => template.members.length > 0)
-    .sort((a, b) => a.rank - b.rank);
+  }).filter((template) => template.members.length > 0);
+
+  const templatePatterns = makeRegisteredBuildTemplates(registeredTeam);
+  return [...publicPatterns, ...templatePatterns].sort((a, b) => a.rank - b.rank);
+}
+
+function makeRegisteredTemplate(member: RegisteredPokemonLike, rank: number): MetaPokemonTemplate {
+  const roleTags = inferRoleTagsFromText(member.roleTags ?? [], member.name);
+  return {
+    kind: "pokemon",
+    name: member.name,
+    rank,
+    usageCount: 0,
+    usageRate: 0,
+    score: roleTags.length,
+    items: [],
+    teraTypes: member.teraType ? [{ name: member.teraType, count: 0, rate: 0 }] : [],
+    abilities: [],
+    moves: [],
+    roleTags,
+    setName: "登録済み候補",
+    reason: "登録済みポケモンの役割タグとタイプからのテンプレ提案です。",
+  };
+}
+
+function inferRoleTagsFromText(roleTags: string[], name: string): RoleTag[] {
+  const text = `${roleTags.join(" ")} ${name}`;
+  const tags: RoleTag[] = [];
+  if (/高速|スカーフ|ドラパルト|マスカーニャ|ゲッコウガ|スターミー/.test(text)) tags.push("高速アタッカー");
+  if (/物理|A|ガブリアス|カイリュー|ドドゲザン|ギャラドス|ハッサム/.test(text)) tags.push("物理アタッカー");
+  if (/特殊|C|アシレーヌ|ゲンガー|サザンドラ|ウルガモス|ラウドボーン/.test(text)) tags.push("特殊アタッカー");
+  if (/耐久|受け|ブラッキー|ドヒドイデ|カバルドン|アーマーガア/.test(text)) tags.push("耐久");
+  if (/サポート|ステロ|起点|壁|でんじは|おにび/.test(text)) tags.push("サポート", "起点作成");
+  if (/対面|タスキ/.test(text) || tags.some((tag) => tag.includes("アタッカー"))) tags.push("対面");
+  return (unique([...(roleTags.filter((tag) => ["高速アタッカー", "物理アタッカー", "特殊アタッカー", "耐久", "サポート", "クッション", "対面", "サイクル", "起点作成", "汎用"].includes(tag)) as RoleTag[]), ...tags]).slice(0, 4) as RoleTag[]) || ["汎用"];
+}
+
+function pickMembers(team: RegisteredPokemonLike[], predicates: Array<(member: RegisteredPokemonLike, tags: RoleTag[]) => boolean>) {
+  const picked: RegisteredPokemonLike[] = [];
+  for (const predicate of predicates) {
+    const next = team.find((member) => !picked.includes(member) && predicate(member, inferRoleTagsFromText(member.roleTags ?? [], member.name)));
+    if (next) picked.push(next);
+  }
+  for (const member of team) {
+    if (picked.length >= 6) break;
+    if (!picked.includes(member)) picked.push(member);
+  }
+  return picked.slice(0, 6);
+}
+
+function makeRegisteredBuildTemplates(team: RegisteredPokemonLike[]): MetaBuildTemplate[] {
+  const registered = team.filter((member) => member.name.trim()).slice(0, 6);
+  if (registered.length === 0) return [];
+  const has = (label: RoleTag) => (_member: RegisteredPokemonLike, tags: RoleTag[]) => tags.includes(label);
+  const attacker = (_member: RegisteredPokemonLike, tags: RoleTag[]) => tags.some((tag) => tag.includes("アタッカー"));
+  const templates = [
+    { name: "高速アタッカー軸", predicates: [has("高速アタッカー"), attacker, has("サポート")], feature: "速い攻撃役を中心にした提案です。" },
+    { name: "物理受け＋高速アタッカー", predicates: [has("耐久"), has("高速アタッカー"), attacker], feature: "受け役で止めて、速い攻撃役につなぐ提案です。" },
+    { name: "ステルスロック展開", predicates: [has("起点作成"), has("高速アタッカー"), attacker], feature: "起点作成から攻撃役を通す提案です。" },
+    { name: "対面寄り", predicates: [has("対面"), attacker, has("高速アタッカー")], feature: "1匹ずつ強く戦う提案です。" },
+    { name: "耐久寄り", predicates: [has("耐久"), has("クッション"), attacker], feature: "長く戦って有利を作る提案です。" },
+    { name: "サポート＋エース", predicates: [has("サポート"), has("高速アタッカー"), attacker], feature: "補助役でエースを動かす提案です。" },
+  ];
+  return templates.map((template, index) => {
+    const members = pickMembers(registered, template.predicates).map((member, memberIndex) => makeRegisteredTemplate(member, memberIndex + 1));
+    const roleTags = unique(members.flatMap((member) => member.roleTags)).slice(0, 4) as RoleTag[];
+    return {
+      name: template.name,
+      rank: 1000 + index,
+      source: "template" as const,
+      members,
+      memberNames: members.map((member) => member.name),
+      roleTags,
+      feature: template.feature,
+      reason: "実構築データではなく、登録済みポケモンのroleTagsとタイプから自動で埋めたテンプレート提案です。",
+    };
+  });
 }
 
 export function createPokemonFromMetaTemplate(template: MetaPokemonTemplate): Pokemon {
@@ -183,7 +261,7 @@ export function createPokemonFromMetaTemplate(template: MetaPokemonTemplate): Po
     roleMemo,
     roleTags: template.roleTags,
     priority: template.roleTags.some((tag) => tag.includes("アタッカー") || tag === "対面") ? "high" : "medium",
-    memo: "公開データから追加",
+    memo: "補助データから追加",
     item: template.items[0]?.name ?? "",
     nature: template.nature ?? "",
     evs: template.evs ?? "",
@@ -233,7 +311,7 @@ export function formatUsageReason(template: Pick<MetaPokemonTemplate, "usageCoun
   if (template.usageRate > 0) parts.push(`採用傾向${Math.round(template.usageRate)}%`);
   if (template.items[0]) parts.push(`持ち物は${template.items[0].name}が多め`);
   if (template.teraTypes[0]) parts.push(`テラは${template.teraTypes[0].name}が多め`);
-  return `公開データ上で多い候補から推定。${parts.join(" / ")}。`;
+  return `使用傾向の参考情報から推定。${parts.join(" / ")}。`;
 }
 
 function buildFeature(roleTags: RoleTag[]) {

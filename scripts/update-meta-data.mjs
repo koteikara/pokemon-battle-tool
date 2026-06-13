@@ -77,77 +77,65 @@ function pickString(record, keys) {
 
 function pickNumber(record, keys, fallback = 0) {
   for (const key of keys) {
-    const value = record?.[key];
-    const number = typeof value === "number" ? value : Number(value);
+    const number = Number(record?.[key]);
     if (Number.isFinite(number)) return number;
   }
   return fallback;
 }
 
-function percent(value) {
-  if (!Number.isFinite(value)) return 0;
-  return Math.round(value * 10) / 10;
-}
-
-function compactUsageList(value, total = 0) {
+function toUsageList(value) {
   return asArray(value)
     .map((entry) => {
-      if (typeof entry === "string") return { name: entry, count: 0, rate: 0 };
-      const name = pickString(entry, ["name", "label", "item", "teraType", "type", "terastal", "pokemon", "partner"]);
+      if (typeof entry === "string") return { name: entry.trim(), count: 0, rate: 0 };
+      const name = pickString(entry, ["name", "label", "item", "teraType", "type", "pokemon", "move", "ability"]);
       const count = pickNumber(entry, ["count", "usageCount", "uses", "value"], 0);
-      const rawRate = pickNumber(entry, ["rate", "usageRate", "percent", "percentage"], 0);
-      const rate = rawRate || (total > 0 && count > 0 ? (count / total) * 100 : 0);
-      return name ? { name, count, rate: percent(rate) } : null;
+      const rate = pickNumber(entry, ["rate", "usageRate", "percent", "percentage"], 0);
+      return name ? { name, count, rate } : null;
     })
     .filter(Boolean)
-    .sort((a, b) => (b.count - a.count) || (b.rate - a.rate) || a.name.localeCompare(b.name, "ja"))
-    .slice(0, MAX_LIST_ITEMS);
+    .slice(0, 20);
 }
 
-function normalizePokemonEntry(entry) {
-  if (!entry || typeof entry !== "object") return null;
-  const name = pickString(entry, ["name", "pokemon", "pokemonName", "species", "ja", "jaName", "japaneseName"]);
-  if (!name) return null;
-  const usageCount = pickNumber(entry, ["usageCount", "count", "uses", "usage", "teams"], 0);
-  return {
-    name,
-    usageCount,
-    items: compactUsageList(entry.items ?? entry.itemStats ?? entry.heldItems ?? entry.holdItems, usageCount),
-    teraTypes: compactUsageList(entry.teraTypes ?? entry.tera_types ?? entry.terastalTypes ?? entry.tera ?? entry.terastal, usageCount),
-    partners: compactUsageList(entry.partners ?? entry.partnerStats ?? entry.teammates ?? entry.with, usageCount),
-  };
+function decodeHtmlUrl(url) {
+  return url.replace(/&amp;/g, "&");
 }
 
-function membersFromRecord(record) {
-  const rawMembers = record?.members ?? record?.team ?? record?.pokemon ?? record?.pokemons ?? record?.party;
-  return asArray(rawMembers)
-    .map((member) => typeof member === "string"
-      ? member.trim()
-      : pickString(member, ["name", "pokemon", "pokemonName", "species", "ja", "jaName", "japaneseName"]))
-    .filter(Boolean)
-    .slice(0, 6);
-}
-
-function normalizeTeamPattern(record) {
-  if (!record || typeof record !== "object") return null;
-  const members = membersFromRecord(record);
-  if (members.length < 2) return null;
-  return {
-    members,
-    rank: pickNumber(record, ["rank", "placement", "order"], 0),
-    rating: pickNumber(record, ["rating", "rating_value", "rate", "score"], 0),
-  };
-}
-
-function recordRawCollectionStats(data) {
-  if (Array.isArray(data)) return { topLevelType: "array", topLevelCount: data.length };
-  if (!data || typeof data !== "object") return { topLevelType: typeof data, topLevelCount: 0 };
-
-  const stats = { topLevelType: "object", topLevelCount: Object.keys(data).length };
-  for (const key of ["pokemon", "pokemons", "pokemonStats", "usage", "records", "data", "teamPatterns", "teams", "rankings", "parties", "constructions"]) {
-    if (data[key] !== undefined) stats[key] = asArray(data[key]).length;
+function toChampsOpenDataUrl(candidate) {
+  try {
+    const url = new URL(decodeHtmlUrl(candidate), CHAMPS_OPEN_DATA_GUIDE_URL);
+    if (url.hostname !== CHAMPS_POKEDB_HOST || !url.pathname.endsWith(".json")) return "";
+    if (!url.pathname.startsWith("/opendata/")) return "";
+    return url.toString();
+  } catch {
+    return "";
   }
-  return stats;
+}
+
+function extractChampsOpenDataUrls(html) {
+  const candidates = [
+    ...html.matchAll(/https:\/\/champs\.pokedb\.tokyo\/opendata\/[^"'\s<>]+?\.json/g),
+    ...html.matchAll(/(?<!:)\/opendata\/[^"'\s<>]+?\.json/g),
+  ].map((match) => match[0]);
+  return unique(candidates.map(toChampsOpenDataUrl));
+}
+
+async function discoverChampsOpenDataUrls() {
+  console.log("参照URL:");
+  console.log(`- ${CHAMPS_OPEN_DATA_GUIDE_URL}`);
+  try {
+    const response = await fetch(CHAMPS_OPEN_DATA_GUIDE_URL, {
+      headers: { accept: "text/html,application/xhtml+xml", "user-agent": "pokemon-battle-tool-meta-updater/2.0" },
+    });
+    console.log(`取得成功/失敗: ${response.ok ? "成功" : "失敗"} (${response.status} ${response.statusText})`);
+    if (!response.ok) return [];
+    const urls = extractChampsOpenDataUrls(await response.text());
+    console.log(`検出したPChamp DB JSON: ${urls.length}`);
+    for (const url of urls) console.log(`- ${url}`);
+    return urls;
+  } catch (error) {
+    console.warn(`取得成功/失敗: 失敗 (${error.message})`);
+    return [];
+  }
 }
 
 function getRawTeamEntries(data) {
@@ -239,80 +227,70 @@ function detectCollections(data) {
     if (directTeam) teamEntries.push(candidate);
     if (directPokemon) pokemonEntries.push(candidate);
   }
-
-  return { pokemonEntries, teamEntries };
+  if (!parsed.pathname.endsWith(".json")) throw new Error(`not a JSON URL: ${url}`);
 }
 
-function incrementUsage(map, name, usage) {
-  if (!name) return;
-  const current = map.get(name) ?? { count: 0 };
-  current.count += usage;
-  map.set(name, current);
+async function fetchJson(url) {
+  validateSourceUrl(url);
+  console.log(`参照URL: ${url}`);
+  const response = await fetch(url, {
+    headers: { accept: "application/json", "user-agent": "pokemon-battle-tool-meta-updater/2.0" },
+  });
+  console.log(`取得成功/失敗: ${response.ok ? "成功" : "失敗"} (${response.status} ${response.statusText})`);
+  if (!response.ok) throw new Error(`fetch failed: ${url} status ${response.status}`);
+  return response.json();
 }
 
-function usageMapToList(map, total) {
-  return [...map.entries()]
-    .map(([name, { count }]) => ({ name, count, rate: percent(total > 0 ? (count / total) * 100 : 0) }))
-    .sort((a, b) => (b.count - a.count) || a.name.localeCompare(b.name, "ja"))
-    .slice(0, MAX_LIST_ITEMS);
-}
-
-function addPokemonUsage(target, name, { item = "", teraType = "", partners = [] } = {}) {
-  if (!name) return;
-  const current = target[name] ?? {
-    usageCount: 0,
-    itemUsage: new Map(),
-    teraUsage: new Map(),
-    partnerUsage: new Map(),
+function parseBaseStats(record) {
+  const stats = record?.baseStats ?? record?.stats ?? record;
+  return {
+    H: pickNumber(stats, ["H", "h", "hp", "HP"], 0),
+    A: pickNumber(stats, ["A", "a", "attack", "atk"], 0),
+    B: pickNumber(stats, ["B", "b", "defense", "def"], 0),
+    C: pickNumber(stats, ["C", "c", "specialAttack", "spAttack", "spa"], 0),
+    D: pickNumber(stats, ["D", "d", "specialDefense", "spDefense", "spd"], 0),
+    S: pickNumber(stats, ["S", "s", "speed", "spe"], 0),
   };
-
-  current.usageCount += 1;
-  incrementUsage(current.itemUsage, item, 1);
-  incrementUsage(current.teraUsage, teraType, 1);
-  for (const partner of partners) incrementUsage(current.partnerUsage, partner, 1);
-  target[name] = current;
 }
 
-function aggregatePokemonFromTeams(teamEntries) {
-  const aggregated = {};
-
-  for (const teamEntry of teamEntries) {
-    const members = asArray(teamEntry?.team ?? teamEntry?.members ?? teamEntry?.pokemon ?? teamEntry?.pokemons ?? teamEntry?.party)
-      .map((member) => {
-        if (typeof member === "string") return { name: member.trim(), item: "", teraType: "" };
-        return {
-          name: pickString(member, ["name", "pokemon", "pokemonName", "species", "ja", "jaName", "japaneseName"]),
-          item: pickString(member, ["item", "heldItem", "holdItem"]),
-          teraType: pickString(member, ["terastal", "teraType", "type", "tera"]),
-        };
-      })
-      .filter((member) => member.name);
-
-    const names = members.map((member) => member.name);
-    for (const member of members) {
-      addPokemonUsage(aggregated, member.name, {
-        item: member.item,
-        teraType: member.teraType,
-        partners: names.filter((name) => name !== member.name),
-      });
-    }
-  }
-
-  return Object.fromEntries(Object.entries(aggregated).map(([name, entry]) => [name, {
-    usageCount: entry.usageCount,
-    items: usageMapToList(entry.itemUsage, entry.usageCount),
-    teraTypes: usageMapToList(entry.teraUsage, entry.usageCount),
-    partners: usageMapToList(entry.partnerUsage, entry.usageCount),
-  }]));
+function inferRoleTags(entry) {
+  const stats = parseBaseStats(entry);
+  const moves = toUsageList(entry.moves ?? entry.moveCandidates).map((move) => move.name).join(" ");
+  const tags = [];
+  if (stats.S >= 100) tags.push("高速アタッカー");
+  if (stats.A >= 100) tags.push("物理アタッカー");
+  if (stats.C >= 100) tags.push("特殊アタッカー");
+  if (stats.H + stats.B + stats.D >= 260) tags.push("耐久");
+  if (/ステルスロック|でんじは|おにび|あくび|リフレクター|ひかりのかべ|ちょうはつ/.test(moves)) tags.push("サポート", "起点作成");
+  if (tags.some((tag) => tag.includes("アタッカー"))) tags.push("対面");
+  return unique(tags).slice(0, 6);
 }
 
-function mergePokemon(target, entry) {
-  const current = target[entry.name] ?? { usageCount: 0, items: [], teraTypes: [], partners: [] };
-  target[entry.name] = {
-    usageCount: Math.max(current.usageCount, entry.usageCount),
-    items: entry.items.length ? entry.items : current.items,
-    teraTypes: entry.teraTypes.length ? entry.teraTypes : current.teraTypes,
-    partners: entry.partners.length ? entry.partners : current.partners,
+function normalizePokemonEntry(entry, sourceUrl) {
+  if (!entry || typeof entry !== "object") return null;
+  const name = pickString(entry, ["name", "pokemon", "pokemonName", "species", "ja", "jaName", "japaneseName"]);
+  if (!name) return null;
+  const types = unique(asArray(entry.types ?? entry.type).map(normalizeName));
+  const abilities = unique(asArray(entry.abilities ?? entry.ability).map((ability) => typeof ability === "string" ? ability.trim() : pickString(ability, ["name", "ability"])));
+  const moves = toUsageList(entry.moves ?? entry.moveCandidates ?? entry.learnset).map((move) => move.name);
+  const roleTags = unique([...(asArray(entry.roleTags).map(normalizeName)), ...inferRoleTags(entry)]);
+  const baseStats = parseBaseStats(entry);
+  return {
+    name,
+    types,
+    baseStats,
+    abilities,
+    moves,
+    roleTags,
+    metaHints: unique([
+      ...asArray(entry.metaHints).map(normalizeName),
+      roleTags.length ? "役割・種族値・技傾向からの推定" : "公開データ上では未確認",
+    ]),
+    sourceUrls: unique([...(asArray(entry.sourceUrls).map(normalizeName)), sourceUrl]),
+    usageCount: pickNumber(entry, ["usageCount", "count", "uses", "usage", "teams"], 0),
+    items: toUsageList(entry.items ?? entry.itemStats ?? entry.heldItems),
+    teraTypes: toUsageList(entry.teraTypes ?? entry.tera_types ?? entry.terastalTypes ?? entry.tera),
+    partners: toUsageList(entry.partners ?? entry.partnerStats ?? entry.teammates),
   };
 }
 
@@ -367,44 +345,73 @@ function validateSourceUrl(url) {
   if (!parsedUrl.pathname.endsWith(".json")) {
     throw new Error(`not a JSON URL: ${url}`);
   }
+  return { pokemonEntries, moveEntries, teamEntries, abilityEntries, itemEntries };
 }
 
-async function fetchJson(url) {
-  validateSourceUrl(url);
-  console.log("Fetching:");
-  console.log(url);
+function normalizeTeamPattern(record) {
+  const members = asArray(record?.members ?? record?.team ?? record?.pokemon ?? record?.pokemons ?? record?.party)
+    .map((member) => typeof member === "string" ? member.trim() : pickString(member, ["name", "pokemon", "pokemonName", "species", "ja", "jaName"]))
+    .filter(Boolean)
+    .slice(0, 6);
+  if (members.length < 2) return null;
+  return { members, rank: pickNumber(record, ["rank", "placement", "order"], 0), rating: pickNumber(record, ["rating", "rate", "score"], 0), source: "public-pattern" };
+}
 
-  const response = await fetch(url, {
-    headers: {
-      accept: "application/json",
-      "user-agent": "pokemon-battle-tool-meta-updater/1.0 (+https://github.com/)",
-    },
-  });
-
-  if (!response.ok) {
-    console.log("Fetch failed:");
-    console.log(`${url} status: ${response.status}`);
-    const error = new Error(`fetch failed: ${url} status ${response.status}`);
-    error.url = url;
-    throw error;
+function mergePokemon(target, entry) {
+  const current = target[entry.name];
+  if (!current) {
+    target[entry.name] = entry;
+    return;
   }
+  target[entry.name] = {
+    ...current,
+    ...entry,
+    types: unique([...current.types, ...entry.types]),
+    abilities: unique([...asArray(current.abilities), ...asArray(entry.abilities)]),
+    moves: unique([...asArray(current.moves), ...asArray(entry.moves)]),
+    roleTags: unique([...current.roleTags, ...entry.roleTags]),
+    metaHints: unique([...current.metaHints, ...entry.metaHints]),
+    sourceUrls: unique([...current.sourceUrls, ...entry.sourceUrls]),
+    items: entry.items?.length ? entry.items : current.items,
+    teraTypes: entry.teraTypes?.length ? entry.teraTypes : current.teraTypes,
+    partners: entry.partners?.length ? entry.partners : current.partners,
+  };
+}
 
-  console.log("Fetch status:");
-  console.log(`${response.status} ${response.statusText}`);
-
-  const contentType = response.headers.get("content-type") ?? "";
-  if (contentType && !contentType.includes("json")) {
-    console.warn(`Fetch warning: ${url} content-type is ${contentType}`);
+function normalizeMeta(rawDataList) {
+  const meta = createEmptyMeta();
+  const referencedUrls = [];
+  for (const { rawData, sourceUrl } of rawDataList) {
+    referencedUrls.push(sourceUrl);
+    const { pokemonEntries, moveEntries, teamEntries, abilityEntries, itemEntries } = detectCollections(rawData);
+    for (const entry of pokemonEntries.map((entry) => normalizePokemonEntry(entry, sourceUrl)).filter(Boolean)) mergePokemon(meta.pokemon, entry);
+    for (const entry of moveEntries.map((entry) => normalizeMoveEntry(entry, sourceUrl)).filter(Boolean)) meta.moves[entry.name] = entry;
+    for (const pattern of teamEntries.map(normalizeTeamPattern).filter(Boolean).slice(0, MAX_TEAM_PATTERNS)) meta.teamPatterns.push(pattern);
+    for (const entry of abilityEntries) {
+      const name = typeof entry === "string" ? entry : pickString(entry, ["name", "ability", "ja"]);
+      if (name) meta.abilities[name] = typeof entry === "object" ? entry : { name };
+    }
+    for (const entry of itemEntries) {
+      const name = typeof entry === "string" ? entry : pickString(entry, ["name", "item", "ja"]);
+      if (name) meta.items[name] = typeof entry === "object" ? entry : { name };
+    }
   }
-
-  return response.json();
+  meta.sourceUrls = unique([...referencedUrls, ...GAMEPEDIA_SOURCE_URLS]);
+  if (meta.teamPatterns.length === 0) meta.notes.push("teamPatternsは、公開されていない構築データを補完しないため空です。");
+  meta.notes.push("SVランクマッチ・ranked_teams・scarlet-violet由来データは利用していません。");
+  return meta;
 }
 
 function createFallbackMeta(errorMessage = CHAMPS_UNAVAILABLE_ERROR) {
   return {
+    source: CHAMPIONS_SOURCE,
+    game: CHAMPIONS_GAME,
     updatedAt: new Date().toISOString(),
     source: CHAMPS_OPEN_DATA_SOURCE,
     pokemon: {},
+    moves: {},
+    abilities: {},
+    items: {},
     teamPatterns: [],
     error: errorMessage || CHAMPS_UNAVAILABLE_ERROR,
   };
@@ -412,25 +419,19 @@ function createFallbackMeta(errorMessage = CHAMPS_UNAVAILABLE_ERROR) {
 
 async function writeMeta(meta) {
   const outputDir = path.dirname(OUTPUT_PATH);
-  console.log(`Output path: ${OUTPUT_PATH}`);
-  let dataDirectoryAlreadyExisted = true;
-  try {
-    await access(outputDir);
-  } catch {
-    dataDirectoryAlreadyExisted = false;
-  }
-  console.log(`Data directory existed before write: ${dataDirectoryAlreadyExisted}`);
-  console.log(`Ensuring data directory exists: ${outputDir}`);
+  console.log(`source: ${meta.source}`);
+  console.log(`game: ${meta.game}`);
+  console.log(`生成pokemon件数: ${Object.keys(meta.pokemon ?? {}).length}`);
+  console.log(`生成moves件数: ${Object.keys(meta.moves ?? {}).length}`);
+  console.log(`生成abilities件数: ${Object.keys(meta.abilities ?? {}).length}`);
+  console.log(`teamPatterns件数: ${asArray(meta.teamPatterns).length}`);
+  if (asArray(meta.teamPatterns).length === 0) console.log("teamPatternsが空の理由: 公開されていない構築データを存在するように補完しないため。");
+  let existed = true;
+  try { await access(outputDir); } catch { existed = false; }
+  console.log(`Data directory existed before write: ${existed}`);
   await mkdir(outputDir, { recursive: true });
-  console.log(`Data directory is ready: ${outputDir}`);
-
-  const pokemonCount = Object.keys(meta.pokemon ?? {}).length;
-  const teamPatternsCount = asArray(meta.teamPatterns).length;
-  console.log(`pokemon count: ${pokemonCount}`);
-  console.log(`teamPatterns count: ${teamPatternsCount}`);
-
   const tempPath = `${OUTPUT_PATH}.tmp`;
-  await writeFile(tempPath, `${JSON.stringify(meta)}\n`, "utf8");
+  await writeFile(tempPath, `${JSON.stringify(meta, null, 2)}\n`, "utf8");
   await rename(tempPath, OUTPUT_PATH);
   console.log(`meta.json written: ${OUTPUT_PATH}`);
 }
@@ -440,6 +441,7 @@ async function main() {
   console.log("Using PokeDB URLs:");
   for (const sourceUrl of pokedbSourceUrls) console.log(`- ${sourceUrl}`);
 
+  const rawDataList = [];
   let lastError;
   for (const sourceUrl of pokedbSourceUrls) {
     try {
@@ -463,7 +465,7 @@ async function main() {
       return;
     } catch (error) {
       lastError = error;
-      console.warn(`Failed to update from ${sourceUrl}: ${error.message}`);
+      console.warn(`取得成功/失敗: 失敗 (${sourceUrl}: ${error.message})`);
     }
   }
 
