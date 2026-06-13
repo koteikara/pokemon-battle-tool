@@ -144,7 +144,7 @@ export function getPokemonSetTemplates(meta: MetaData | null | undefined, pokemo
   }).sort((a, b) => b.usageCount - a.usageCount || b.score - a.score || a.rank - b.rank);
 }
 
-export function getPopularBuildTemplates(meta: MetaData | null | undefined, registeredTeam: RegisteredPokemonLike[] = []): MetaBuildTemplate[] {
+export function getPopularBuildTemplates(meta: MetaData | null | undefined): MetaBuildTemplate[] {
   const patterns = hasUsableMetaData(meta) && Array.isArray(meta.teamPatterns) ? meta.teamPatterns : [];
   const popular = getPopularPokemonTemplates(meta);
   const map = new Map(popular.map((template) => [normalizeName(template.name), template]));

@@ -9,7 +9,6 @@ import {
 import { MOVES } from "./lib/moves";
 import {
   findMetaPokemon,
-  getMetaDataOriginLabel,
   hasUsableMetaData,
   loadMetaData,
   type MetaData,
@@ -4012,30 +4011,29 @@ function PopularDataSection({
     <section className="popular-template-panel" aria-label="補助データから追加">
       <div className="popular-pokemon-heading-row">
         <div>
-          <div className="card-title">補助データから追加</div>
-          <p className="popular-pokemon-help">公開構築データは使わず、役割・相性から仮説テンプレを出します。</p>
+          <div className="card-title">公開データから追加</div>
+          <p className="popular-pokemon-help">Championsの公開採用データが使えると、型や構築を追加できます。</p>
         </div>
-        <span className="popular-pokemon-source">テンプレ提案あり</span>
+        {hasMeta ? <span className="popular-pokemon-source">Championsデータ反映済み</span> : null}
       </div>
 
       {!hasMeta && (
         <div className="popular-status">
-          <div>公開構築データは使いません。</div>
-          <div>役割・相性からの推定で補助します。</div>
+          <div>公開採用データはまだ利用できません。</div>
+          <div>現在はタイプ相性・種族値・登録情報をもとに予測しています。</div>
         </div>
       )}
-      {!hasAnyTemplateData && <div className="popular-status">現在表示できるデータがありません</div>}
+      {isEmpty && <div className="popular-status">表示できる公開データがありません。</div>}
 
-      {hasAnyTemplateData && (
+      {hasMeta && (
         <>
-          <div className="popular-tabs" role="tablist" aria-label="補助データの種類">
+          <div className="popular-tabs" role="tablist" aria-label="公開データの種類">
             <button type="button" className={activeTab === "pokemon" ? "active" : ""} onClick={() => setActiveTab("pokemon")}>人気ポケモン</button>
             <button type="button" className={activeTab === "sets" ? "active" : ""} onClick={() => setActiveTab("sets")}>型テンプレ</button>
-            <button type="button" className={activeTab === "builds" ? "active" : ""} onClick={() => setActiveTab("builds")}>提案テンプレ</button>
+            <button type="button" className={activeTab === "builds" ? "active" : ""} onClick={() => setActiveTab("builds")}>構築セット</button>
           </div>
 
           <div className="popular-grid">
-            {activeListIsEmpty && <div className="popular-status popular-status-empty">現在表示できるデータがありません</div>}
             {activeTab === "pokemon" && pokemonList.map((template) => (
               <TemplateCard key={`${template.kind}-${template.name}-${template.rank}`} template={template} onApply={onApplyTemplate} onAdd={onAddTemplate} />
             ))}
@@ -4652,8 +4650,8 @@ function BattleScreen({
         <div className="result-section-title">相手の選出予測</div>
         <div className="result-meta-note">
           {hasUsableMetaData(publicMetaData)
-            ? "入力された相手パーティから、チャンピオンズ実装データに基づく補助情報と役割・相性で3匹を予測します。"
-            : "公開構築データは使いません。役割・相性からの推定で補助します。"}
+            ? "入力された相手パーティから、Champions公開データ上の傾向も参考に選出されやすい3匹を予測します。"
+            : "公開採用データはまだ利用できません。現在はタイプ相性・種族値・登録情報をもとに予測しています。"}
         </div>
         {validCount === 0 ? (
           <div className="result-empty">

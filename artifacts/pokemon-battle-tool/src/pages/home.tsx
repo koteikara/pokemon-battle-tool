@@ -313,11 +313,11 @@ function PopularDataSection({ metaData, popularPokemon, setTemplates, buildTempl
   return <div className="popular-template-panel space-y-3">
     <div>
       <h3 className="font-bold text-lg">人気データから追加</h3>
-      <p className="text-sm text-muted-foreground">チャンピオンズ実装データと推定ロジックから、型テンプレを追加できます。</p>
+      <p className="text-sm text-muted-foreground">Championsの公開採用データが使えると、型や構築を追加できます。</p>
     </div>
 
-    {!hasMeta && <div className="popular-status"><div>公開構築データは使いません。</div><div>役割・相性からの推定で補助します。</div></div>}
-    {isEmpty && <div className="popular-status">補助データがまだありません。</div>}
+    {!hasMeta && <div className="popular-status"><div>公開採用データはまだ利用できません。</div><div>現在はタイプ相性・種族値・登録情報をもとに予測しています。</div></div>}
+    {isEmpty && <div className="popular-status">公開データがまだありません。</div>}
 
     {hasMeta && <><div className="popular-tabs" role="tablist" aria-label="人気データタブ">
       <button type="button" className={tab === "pokemon" ? "active" : ""} onClick={() => setTab("pokemon")}>人気ポケモン</button>
@@ -356,7 +356,7 @@ function PopularDataSection({ metaData, popularPokemon, setTemplates, buildTempl
       {buildTemplates.filter(filterBuild).length > visibleBuilds.length && <Button type="button" variant="outline" className="popular-more" onClick={() => setBuildLimit((value) => value + 6)}>もっと見る</Button>}
     </div>}
 
-    <p className="text-[11px] text-muted-foreground leading-relaxed">チャンピオンズ実装データに基づく補助候補です。実際の型や努力値は自分の構築に合わせて調整してください。</p></>}
+    <p className="text-[11px] text-muted-foreground leading-relaxed">Champions公開データをもとにした候補です。実際の型や努力値は自分の構築に合わせて調整してください。</p></>}
   </div>;
 }
 
@@ -554,7 +554,7 @@ export default function Home() {
         <div>
           <div className="mb-2 flex items-center justify-between gap-2">
             <p className="text-sm font-semibold">相手の選出予想（上位3）</p>
-            {hasUsableMetaData(metaData) ? <Badge variant="outline" className="shrink-0 text-[11px]">Champions補助データ反映済み</Badge> : <span className="text-xs text-muted-foreground">公開構築データは使いません</span>}
+            {hasUsableMetaData(metaData) ? <Badge variant="outline" className="shrink-0 text-[11px]">Champions採用データ反映済み</Badge> : <span className="text-xs text-muted-foreground">公開採用データはまだ利用できません</span>}
           </div>
           {topPredictions.map((prediction, index) => <div key={prediction.p.id} className="border rounded-lg p-3 mb-2 space-y-2">
             <div className="flex items-center justify-between gap-2"><div className="font-semibold">{index + 1}. {prediction.p.name}</div><div className="text-sm font-semibold">{prediction.score}点</div></div>

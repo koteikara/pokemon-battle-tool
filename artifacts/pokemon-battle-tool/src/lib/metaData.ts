@@ -52,6 +52,9 @@ export interface MetaData {
   source: string;
   game: string;
   updatedAt: string;
+  source: "champs-pokedb" | "pokedb" | string;
+  sourceUrl?: string;
+  error?: string;
   pokemon: Record<string, MetaPokemonEntry>;
   moves: Record<string, MetaMoveEntry>;
   abilities: Record<string, unknown>;
@@ -101,8 +104,7 @@ export async function loadMetaData(): Promise<MetaData | null> {
       !Array.isArray(data.notes)
     ) {
       return null;
-    }
-    return data;
+    return data as MetaData;
   } catch {
     return null;
   }
@@ -126,14 +128,8 @@ export function findMetaPokemon(
 export function hasUsableMetaData(metaData: MetaData | null | undefined): metaData is MetaData {
   return Boolean(
     metaData &&
-      isChampionsMetaSource(metaData) &&
+      metaData.source === "champs-pokedb" &&
       Object.keys(metaData.pokemon ?? {}).length > 0 &&
       Array.isArray(metaData.teamPatterns),
   );
-}
-
-export function getMetaDataOriginLabel(metaData: MetaData | null | undefined, entry?: MetaPokemonEntry | null): string {
-  if (!isChampionsMetaSource(metaData)) return "役割・種族値・技傾向からの推定";
-  if (entry?.sourceUrls?.length) return "チャンピオンズ実装データに基づく補助情報";
-  return "公開データ上では未確認 / 役割・相性からの推定";
 }
