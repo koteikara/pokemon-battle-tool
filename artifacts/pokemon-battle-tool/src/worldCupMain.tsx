@@ -30,8 +30,17 @@ const STORAGE_KEY = "world-cup-prediction-page-v2";
 const MAX_PREDICTORS = 3;
 const STATIC_DATES = getAllStaticWorldCupDates();
 
+function japanDateValue(value = new Date()) {
+  return new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "Asia/Tokyo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(value);
+}
+
 function todayValue() {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = japanDateValue();
   if (STATIC_DATES.includes(today)) return today;
   return STATIC_DATES[0] ?? today;
 }
@@ -109,31 +118,70 @@ function stableMatchKey(match: Pick<WorldCupMatch, "date" | "homeTeam" | "awayTe
   return `${dateKey(match.date)}-${normalizeName(match.homeTeam)}-${normalizeName(match.awayTeam)}`;
 }
 
+const RESULT_UPDATE_DELAY_MINUTES = 135;
+const RESULT_MATCH_TIME_TOLERANCE_MINUTES = 75;
+
+function minutesBetween(a: string, b: string) {
+  return Math.abs(new Date(a).getTime() - new Date(b).getTime()) / 60_000;
+}
+
+function resultReadyAt(match: Pick<WorldCupMatch, "date">) {
+  return new Date(new Date(match.date).getTime() + RESULT_UPDATE_DELAY_MINUTES * 60_000);
+}
+
+function isResultRefreshTime(staticMatches: WorldCupMatch[], now = new Date()) {
+  return staticMatches.some((match) => resultReadyAt(match).getTime() <= now.getTime());
+}
+
+function canApplyResult(match: WorldCupMatch, now = new Date()) {
+  return resultReadyAt(match).getTime() <= now.getTime();
+}
+
+function findFetchedResult(
+  staticMatch: WorldCupMatch,
+  fetchedMatches: WorldCupMatch[],
+  usedIndexes: Set<number>,
+) {
+  const key = stableMatchKey(staticMatch);
+  const exactIndex = fetchedMatches.findIndex(
+    (match, index) => !usedIndexes.has(index) && stableMatchKey(match) === key,
+  );
+  if (exactIndex >= 0) return exactIndex;
+
+  let nearestIndex = -1;
+  let nearestDiff = Number.POSITIVE_INFINITY;
+  fetchedMatches.forEach((match, index) => {
+    if (usedIndexes.has(index)) return;
+    const diff = minutesBetween(staticMatch.date, match.date);
+    if (diff <= RESULT_MATCH_TIME_TOLERANCE_MINUTES && diff < nearestDiff) {
+      nearestIndex = index;
+      nearestDiff = diff;
+    }
+  });
+  return nearestIndex;
+}
+
 function mergeMatches(staticMatches: WorldCupMatch[], fetchedMatches: WorldCupMatch[]) {
   if (fetchedMatches.length === 0) return staticMatches;
-  if (staticMatches.length === 0) return fetchedMatches;
 
-  const fetchedByTeams = new Map(fetchedMatches.map((match) => [stableMatchKey(match), match]));
-  const merged = staticMatches.map((staticMatch) => {
-    const fetched = fetchedByTeams.get(stableMatchKey(staticMatch));
-    if (!fetched) return staticMatch;
+  const usedIndexes = new Set<number>();
+  return staticMatches.map((staticMatch) => {
+    if (!canApplyResult(staticMatch)) return staticMatch;
+
+    const fetchedIndex = findFetchedResult(staticMatch, fetchedMatches, usedIndexes);
+    if (fetchedIndex < 0) return staticMatch;
+    usedIndexes.add(fetchedIndex);
+
+    const fetched = fetchedMatches[fetchedIndex];
     return {
       ...staticMatch,
-      id: staticMatch.id,
       homeScore: fetched.homeScore,
       awayScore: fetched.awayScore,
       status: fetched.status,
       statusText: fetched.statusText,
       sourceUrl: fetched.sourceUrl,
-      venue: fetched.venue || staticMatch.venue,
     };
-  });
-
-  const staticKeys = new Set(staticMatches.map(stableMatchKey));
-  return [
-    ...merged,
-    ...fetchedMatches.filter((match) => !staticKeys.has(stableMatchKey(match))),
-  ].sort((a, b) => a.date.localeCompare(b.date));
+  }).sort((a, b) => a.date.localeCompare(b.date));
 }
 
 function useWorldCupMatches(selectedDate: string) {
@@ -147,6 +195,19 @@ function useWorldCupMatches(selectedDate: string) {
     let active = true;
     const staticMatches = getStaticWorldCupMatches(selectedDate);
     setMatches(staticMatches);
+    setUpdatedAt("");
+
+    if (!isResultRefreshTime(staticMatches)) {
+      setState(staticMatches.length > 0 ? "fallback" : "error");
+      setMessage(staticMatches.length > 0
+        ? "日本時間の試合終了後に結果を更新します。"
+        : "この日の国内向け日程データはまだありません。"
+      );
+      return () => {
+        active = false;
+      };
+    }
+
     setState("loading");
     setMessage("");
 
@@ -155,8 +216,9 @@ function useWorldCupMatches(selectedDate: string) {
         if (!active) return;
         const merged = mergeMatches(staticMatches, fetchedMatches);
         setMatches(merged);
-        setState(fetchedMatches.length > 0 ? "success" : "fallback");
-        setMessage(fetchedMatches.length > 0 ? "最新結果を読みこみました。" : "公式に近い日程データを表示しています。");
+        const hasAppliedResult = merged.some((match) => match.homeScore !== null && match.awayScore !== null);
+        setState(hasAppliedResult ? "success" : "fallback");
+        setMessage(hasAppliedResult ? "終了した試合の結果を読みこみました。" : "終了した試合の結果はまだ見つかりません。");
         setUpdatedAt(new Intl.DateTimeFormat("ja-JP", {
           hour: "2-digit",
           minute: "2-digit",
@@ -166,6 +228,7 @@ function useWorldCupMatches(selectedDate: string) {
       .catch(() => {
         if (!active) return;
         setMatches(staticMatches);
+        setUpdatedAt("");
         setState(staticMatches.length > 0 ? "fallback" : "error");
         setMessage(staticMatches.length > 0
           ? "結果の自動取得ができませんでした。日程データを表示しています。"
