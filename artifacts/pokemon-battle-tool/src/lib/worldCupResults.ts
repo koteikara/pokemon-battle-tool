@@ -138,7 +138,38 @@ function parseEvent(event: EspnEvent): WorldCupMatch | null {
   };
 }
 
-export async function fetchWorldCupMatches(date: string): Promise<WorldCupMatch[]> {
+function toJapanDateKey(value: string) {
+  if (!value) return "";
+  return new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "Asia/Tokyo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date(value));
+}
+
+function addDays(date: string, days: number) {
+  const value = new Date(`${date}T00:00:00+09:00`);
+  value.setUTCDate(value.getUTCDate() + days);
+  return new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "Asia/Tokyo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(value);
+}
+
+function uniqueMatches(matches: WorldCupMatch[]) {
+  const seen = new Set<string>();
+  return matches.filter((match) => {
+    const key = match.id || `${match.date}-${match.homeTeam}-${match.awayTeam}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+async function fetchScoreboardDate(date: string): Promise<WorldCupMatch[]> {
   const response = await fetch(getWorldCupScoreboardUrl(date));
   if (!response.ok) {
     throw new Error(`World Cup score fetch failed: ${response.status}`);
@@ -146,7 +177,20 @@ export async function fetchWorldCupMatches(date: string): Promise<WorldCupMatch[
   const data = (await response.json()) as EspnScoreboard;
   return (data.events ?? [])
     .map(parseEvent)
-    .filter((match): match is WorldCupMatch => match !== null)
+    .filter((match): match is WorldCupMatch => match !== null);
+}
+
+export async function fetchWorldCupMatches(date: string): Promise<WorldCupMatch[]> {
+  const scoreboardDates = [addDays(date, -1), date, addDays(date, 1)];
+  const settled = await Promise.allSettled(scoreboardDates.map(fetchScoreboardDate));
+  const matches = settled.flatMap((result) => result.status === "fulfilled" ? result.value : []);
+
+  if (settled.every((result) => result.status === "rejected")) {
+    throw new Error(`World Cup score fetch failed for ${date}`);
+  }
+
+  return uniqueMatches(matches)
+    .filter((match) => toJapanDateKey(match.date) === date)
     .sort((a, b) => a.date.localeCompare(b.date));
 }
 
