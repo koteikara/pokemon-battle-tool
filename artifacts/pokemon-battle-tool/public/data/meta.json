@@ -1,7 +1,7 @@
 {
   "source": "champions-derived",
   "game": "pokemon-champions",
-  "updatedAt": "2026-10-20T22:46:10.893Z",
+  "updatedAt": "2026-10-21T22:51:48.424Z",
   "pokemon": {},
   "moves": {},
   "abilities": {},
@@ -43,19 +43,6 @@
         "グソクムシャ"
       ],
       "rank": 3,
-      "rating": 0,
-      "source": "public-pattern"
-    },
-    {
-      "members": [
-        "カバルドン",
-        "ルカリオ",
-        "イダイトウ",
-        "マスカーニャ",
-        "ブリジュラス",
-        "リザードン"
-      ],
-      "rank": 4,
       "rating": 0,
       "source": "public-pattern"
     },
