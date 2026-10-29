@@ -1,7 +1,7 @@
 {
   "source": "champions-derived",
   "game": "pokemon-champions",
-  "updatedAt": "2026-10-28T23:41:41.080Z",
+  "updatedAt": "2026-10-29T23:41:09.997Z",
   "pokemon": {},
   "moves": {},
   "abilities": {},
@@ -1408,6 +1408,19 @@
         "ピカチュウ"
       ],
       "rank": 282,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "ビビヨン",
+        "クエスパトラ",
+        "ゲッコウガ",
+        "ブリジュラス",
+        "ルカリオ",
+        "ミミッキュ"
+      ],
+      "rank": 283,
       "rating": 0,
       "source": "public-pattern"
     },
