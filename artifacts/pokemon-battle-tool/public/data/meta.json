@@ -1,12 +1,1234 @@
 {
   "source": "champions-derived",
   "game": "pokemon-champions",
-  "updatedAt": "2026-11-04T00:14:54.766Z",
+  "updatedAt": "2026-11-05T00:34:41.593Z",
   "pokemon": {},
   "moves": {},
   "abilities": {},
   "items": {},
   "teamPatterns": [
+    {
+      "members": [
+        "アシレーヌ",
+        "ルカリオ",
+        "ゴリランダー",
+        "ブリジュラス",
+        "ヤドキング",
+        "ガブリアス"
+      ],
+      "rank": 1,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "ピクシー",
+        "エースバーン",
+        "ゲッコウガ",
+        "フシギバナ",
+        "ギャラドス",
+        "ブリジュラス"
+      ],
+      "rank": 3,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "カバルドン",
+        "ボーマンダ",
+        "セグレイブ",
+        "サーフゴー",
+        "グソクムシャ",
+        "アシレーヌ"
+      ],
+      "rank": 4,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "カバルドン",
+        "ガブリアス",
+        "アーマーガア",
+        "ライチュウ",
+        "イエッサン",
+        "スターミー"
+      ],
+      "rank": 7,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "カバルドン",
+        "ルカリオ",
+        "イダイトウ",
+        "マスカーニャ",
+        "ブリジュラス",
+        "ガブリアス"
+      ],
+      "rank": 8,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "ルカリオ",
+        "カイリュー",
+        "ゲンガー",
+        "ビビヨン",
+        "イダイトウ",
+        "ブリジュラス"
+      ],
+      "rank": 9,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "ガブリアス",
+        "ハッサム",
+        "キラフロル",
+        "リザードン",
+        "アシレーヌ",
+        "ミミッキュ"
+      ],
+      "rank": 25,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "ボーマンダ",
+        "カバルドン",
+        "サーフゴー",
+        "メタグロス",
+        "アシレーヌ",
+        "エースバーン"
+      ],
+      "rank": 44,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "ピクシー",
+        "ドヒドイデ",
+        "ドリュウズ",
+        "スコヴィラン",
+        "ボーマンダ",
+        "バンギラス"
+      ],
+      "rank": 51,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "ガブリアス",
+        "リザードン",
+        "アシレーヌ",
+        "ギルガルド",
+        "ブラッキー",
+        "メタグロス"
+      ],
+      "rank": 52,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "カバルドン",
+        "ボーマンダ",
+        "サーフゴー",
+        "オーロンゲ",
+        "ブリジュラス",
+        "イダイトウ"
+      ],
+      "rank": 56,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "ミミロップ",
+        "ラウドボーン",
+        "ミロカロス",
+        "ハラバリー",
+        "サーナイト",
+        "ゴリランダー"
+      ],
+      "rank": 61,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "フラエッテ",
+        "ガブリアス",
+        "カバルドン",
+        "ダイケンキ",
+        "ドヒドイデ",
+        "サーフゴー"
+      ],
+      "rank": 74,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "ペンドラー",
+        "ソウブレイズ",
+        "サーフゴー",
+        "ギャラドス",
+        "メガニウム",
+        "サーナイト"
+      ],
+      "rank": 82,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "スコヴィラン",
+        "バンギラス",
+        "サーフゴー",
+        "グソクムシャ",
+        "イエッサン",
+        "ドラパルト"
+      ],
+      "rank": 85,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "ルカリオ",
+        "カイリュー",
+        "カメックス",
+        "ゲッコウガ",
+        "ブリジュラス",
+        "イエッサン"
+      ],
+      "rank": 86,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "マフォクシー",
+        "フラエッテ",
+        "ダイケンキ",
+        "シャワーズ",
+        "ブリジュラス",
+        "カバルドン"
+      ],
+      "rank": 95,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "ミミロップ",
+        "ヤドキング",
+        "ペルシアン",
+        "アシレーヌ",
+        "カイリュー",
+        "カバルドン"
+      ],
+      "rank": 100,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "カイリュー",
+        "マスカーニャ",
+        "バイバニラ",
+        "ガブリアス",
+        "ルカリオ",
+        "ミミッキュ"
+      ],
+      "rank": 120,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "ジュペッタ",
+        "エルレイド",
+        "ゲッコウガ",
+        "イエッサン",
+        "イダイトウ",
+        "バシャーモ"
+      ],
+      "rank": 127,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "サザンドラ",
+        "スターミー",
+        "カバルドン",
+        "ルカリオ",
+        "アーマーガア",
+        "イエッサン"
+      ],
+      "rank": 133,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "フラエッテ",
+        "ガブリアス",
+        "アーマーガア",
+        "ドヒドイデ",
+        "ロトム",
+        "イエッサン"
+      ],
+      "rank": 136,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "カイリュー",
+        "ヤドキング",
+        "ヘラクロス",
+        "ブリジュラス",
+        "ミミッキュ",
+        "ダイケンキ"
+      ],
+      "rank": 139,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "サーナイト",
+        "カバルドン",
+        "イダイトウ",
+        "ウルガモス",
+        "アーマーガア",
+        "ルカリオ"
+      ],
+      "rank": 140,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "バクフーン",
+        "セグレイブ",
+        "アーマーガア",
+        "オオニューラ",
+        "ダイケンキ",
+        "ピクシー"
+      ],
+      "rank": 144,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "ボーマンダ",
+        "カバルドン",
+        "ブリジュラス",
+        "アーマーガア",
+        "ガメノデス",
+        "イダイトウ"
+      ],
+      "rank": 146,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "ルカリオ",
+        "ガブリアス",
+        "ブリジュラス",
+        "グソクムシャ",
+        "ロトム",
+        "メタモン"
+      ],
+      "rank": 151,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "ドラパルト",
+        "ボーマンダ",
+        "ガブリアス",
+        "ブリジュラス",
+        "ヌメルゴン",
+        "カイリュー"
+      ],
+      "rank": 152,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "ムクホーク",
+        "ルカリオ",
+        "イダイトウ",
+        "ミミッキュ",
+        "パーモット",
+        "ブリジュラス"
+      ],
+      "rank": 154,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "クチート",
+        "イダイトウ",
+        "タブンネ",
+        "パーモット",
+        "ゲンガー",
+        "ミミッキュ"
+      ],
+      "rank": 159,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "グソクムシャ",
+        "サーフゴー",
+        "カビゴン",
+        "ガブリアス",
+        "ミミッキュ",
+        "カイリュー"
+      ],
+      "rank": 163,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "メタグロス",
+        "カメックス",
+        "ガブリアス",
+        "アシレーヌ",
+        "バイバニラ",
+        "ドドゲザン"
+      ],
+      "rank": 166,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "メガニウム",
+        "ブリジュラス",
+        "ミミッキュ",
+        "リザードン",
+        "ガブリアス",
+        "ドドゲザン"
+      ],
+      "rank": 178,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "キラフロル",
+        "メガニウム",
+        "ミミッキュ",
+        "サーフゴー",
+        "ギャラドス",
+        "ガブリアス"
+      ],
+      "rank": 184,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "バンギラス",
+        "ドリュウズ",
+        "スコヴィラン",
+        "カイリュー",
+        "アーマーガア",
+        "ハカドッグ"
+      ],
+      "rank": 199,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "ルカリオ",
+        "ミミッキュ",
+        "カバルドン",
+        "リザードン",
+        "サザンドラ",
+        "ロトム"
+      ],
+      "rank": 205,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "フラエッテ",
+        "サーフゴー",
+        "オーロンゲ",
+        "ルカリオ",
+        "ポットデス",
+        "ヘラクロス"
+      ],
+      "rank": 208,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "ペリッパー",
+        "ラグラージ",
+        "ブリジュラス",
+        "ライチュウ",
+        "ミミッキュ",
+        "ニョロトノ"
+      ],
+      "rank": 222,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "ペンドラー",
+        "シャワーズ",
+        "ブリムオン",
+        "ガオガエン",
+        "ドリュウズ",
+        "カエンジシ"
+      ],
+      "rank": 230,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "ルカリオ",
+        "ガブリアス",
+        "サザンドラ",
+        "ロトム",
+        "ミミッキュ",
+        "メタグロス"
+      ],
+      "rank": 239,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "グソクムシャ",
+        "アシレーヌ",
+        "ガブリアス",
+        "ウルガモス",
+        "ピクシー",
+        "イダイトウ"
+      ],
+      "rank": 244,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "マスカーニャ",
+        "グソクムシャ",
+        "マフォクシー",
+        "ミミッキュ",
+        "キラフロル",
+        "カバルドン"
+      ],
+      "rank": 271,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "バンギラス",
+        "ドリュウズ",
+        "スコヴィラン",
+        "カイリュー",
+        "ゲンガー",
+        "ハカドッグ"
+      ],
+      "rank": 291,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "ガブリアス",
+        "カバルドン",
+        "ドドゲザン",
+        "マフォクシー",
+        "ヤドキング",
+        "ピクシー"
+      ],
+      "rank": 293,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "バシャーモ",
+        "ゲンガー",
+        "ブラッキー",
+        "アシレーヌ",
+        "キラフロル",
+        "ガブリアス"
+      ],
+      "rank": 325,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "チリーン",
+        "ダイケンキ",
+        "ロトム",
+        "ガブリアス",
+        "ドヒドイデ",
+        "フラエッテ"
+      ],
+      "rank": 371,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "グソクムシャ",
+        "マスカーニャ",
+        "ガブリアス",
+        "アシレーヌ",
+        "ロトム",
+        "マフォクシー"
+      ],
+      "rank": 408,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "ルカリオ",
+        "カビゴン",
+        "ゲッコウガ",
+        "ミミッキュ",
+        "サザンドラ",
+        "クエスパトラ"
+      ],
+      "rank": 425,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "ウツボット",
+        "カイリュー",
+        "ヤドラン",
+        "ドドゲザン",
+        "ブラッキー",
+        "ドヒドイデ"
+      ],
+      "rank": 446,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "ブリジュラス",
+        "ガブリアス",
+        "ギャラドス",
+        "グソクムシャ",
+        "ミミッキュ",
+        "カイリュー"
+      ],
+      "rank": 519,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "カメックス",
+        "イエッサン",
+        "ミミッキュ",
+        "ガブリアス",
+        "ギャラドス",
+        "ルカリオ"
+      ],
+      "rank": 521,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "サーナイト",
+        "リザードン",
+        "カバルドン",
+        "ブリジュラス",
+        "ホルード",
+        "オニシズクモ"
+      ],
+      "rank": 537,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "ボーマンダ",
+        "カバルドン",
+        "サーフゴー",
+        "カビゴン",
+        "ダイケンキ",
+        "フラエッテ"
+      ],
+      "rank": 545,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "ジュペッタ",
+        "イエッサン",
+        "イダイトウ",
+        "ブリジュラス",
+        "メガニウム",
+        "バシャーモ"
+      ],
+      "rank": 550,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "ボーマンダ",
+        "アシレーヌ",
+        "セグレイブ",
+        "グソクムシャ",
+        "ガブリアス",
+        "ブリジュラス"
+      ],
+      "rank": 551,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "イエッサン",
+        "フーディン",
+        "アーマーガア",
+        "バシャーモ",
+        "ゲッコウガ",
+        "ラグラージ"
+      ],
+      "rank": 645,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "パーモット",
+        "ボーマンダ",
+        "ドドゲザン",
+        "カバルドン",
+        "リザードン",
+        "アシレーヌ"
+      ],
+      "rank": 656,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "グソクムシャ",
+        "キラフロル",
+        "ギャラドス",
+        "セグレイブ",
+        "サーフゴー",
+        "ミミッキュ"
+      ],
+      "rank": 658,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "カバルドン",
+        "ムクホーク",
+        "サーフゴー",
+        "イダイトウ",
+        "ブリジュラス",
+        "ゲッコウガ"
+      ],
+      "rank": 662,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "メタグロス",
+        "リザードン",
+        "サザンドラ",
+        "カバルドン",
+        "ガブリアス",
+        "アシレーヌ"
+      ],
+      "rank": 667,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "エースバーン",
+        "フラエッテ",
+        "エルフーン",
+        "ポットデス",
+        "ギルガルド",
+        "ギャラドス"
+      ],
+      "rank": 686,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "スターミー",
+        "サーフゴー",
+        "カバルドン",
+        "ブリジュラス",
+        "ピクシー",
+        "ウインディ"
+      ],
+      "rank": 692,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "デンリュウ",
+        "ミミッキュ",
+        "ロトム",
+        "デカヌチャン",
+        "リザードン",
+        "ガブリアス"
+      ],
+      "rank": 716,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "アブソル",
+        "グソクムシャ",
+        "キュウコン",
+        "ブリジュラス",
+        "ラグラージ",
+        "ガブリアス"
+      ],
+      "rank": 722,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "アシレーヌ",
+        "ガブリアス",
+        "リザードン",
+        "フラエッテ",
+        "ゴリランダー",
+        "ハッサム"
+      ],
+      "rank": 724,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "ヌメルゴン",
+        "ピクシー",
+        "キラフロル",
+        "ボーマンダ",
+        "グソクムシャ",
+        "カバルドン"
+      ],
+      "rank": 730,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "リザードン",
+        "キラフロル",
+        "セグレイブ",
+        "ヌメルゴン",
+        "グソクムシャ",
+        "カバルドン"
+      ],
+      "rank": 731,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "フラエッテ",
+        "マフォクシー",
+        "アーマーガア",
+        "ガブリアス",
+        "ミミッキュ",
+        "オニシズクモ"
+      ],
+      "rank": 748,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "ラグラージ",
+        "ブリジュラス",
+        "ペリッパー",
+        "イダイトウ",
+        "グソクムシャ",
+        "フラエッテ"
+      ],
+      "rank": 752,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "カイリュー",
+        "ハッサム",
+        "イダイトウ",
+        "バシャーモ",
+        "ガブリアス",
+        "サザンドラ"
+      ],
+      "rank": 784,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "ドヒドイデ",
+        "エアームド",
+        "バンギラス",
+        "メガニウム",
+        "エレザード",
+        "ヤドキング"
+      ],
+      "rank": 785,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "フラエッテ",
+        "ガブリアス",
+        "ブラッキー",
+        "アシレーヌ",
+        "サーフゴー",
+        "カイリュー"
+      ],
+      "rank": 786,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "ムクホーク",
+        "ミミッキュ",
+        "イダイトウ",
+        "キュウコン",
+        "ブリジュラス",
+        "グソクムシャ"
+      ],
+      "rank": 793,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "ギルガルド",
+        "ルカリオ",
+        "カイリュー",
+        "カバルドン",
+        "ミミッキュ",
+        "イダイトウ"
+      ],
+      "rank": 795,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "スコヴィラン",
+        "メタモン",
+        "ドヒドイデ",
+        "ヤミラミ",
+        "ミミズズ",
+        "カビゴン"
+      ],
+      "rank": 817,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "ドラミドロ",
+        "ブラッキー",
+        "ラウドボーン",
+        "ロトム",
+        "ガブリアス",
+        "グソクムシャ"
+      ],
+      "rank": 822,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "フシギバナ",
+        "ブラッキー",
+        "ガブリアス",
+        "アーマーガア",
+        "リザードン",
+        "メタモン"
+      ],
+      "rank": 823,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "ブリジュラス",
+        "ラグラージ",
+        "カイリュー",
+        "マスカーニャ",
+        "ニョロトノ",
+        "バサギリ"
+      ],
+      "rank": 884,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "ジュカイン",
+        "ボーマンダ",
+        "カバルドン",
+        "ブリジュラス",
+        "イダイトウ",
+        "ミミッキュ"
+      ],
+      "rank": 904,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "メタグロス",
+        "スコヴィラン",
+        "アシレーヌ",
+        "ミミッキュ",
+        "キラフロル",
+        "ガブリアス"
+      ],
+      "rank": 908,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "クエスパトラ",
+        "ピクシー",
+        "イダイトウ",
+        "ミミッキュ",
+        "ルカリオ",
+        "カイリュー"
+      ],
+      "rank": 925,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "フラエッテ",
+        "ガブリアス",
+        "ギャラドス",
+        "サーフゴー",
+        "ウルガモス",
+        "オーロンゲ"
+      ],
+      "rank": 926,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "ガブリアス",
+        "エンペルト",
+        "ゴリランダー",
+        "カバルドン",
+        "バシャーモ",
+        "サーフゴー"
+      ],
+      "rank": 931,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "ドデカバシ",
+        "カバルドン",
+        "グソクムシャ",
+        "ユキメノコ",
+        "ヌメルゴン",
+        "ソウブレイズ"
+      ],
+      "rank": 949,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "ロトム",
+        "メタグロス",
+        "ブラッキー",
+        "ミミッキュ",
+        "メガニウム",
+        "ガブリアス"
+      ],
+      "rank": 966,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "カバルドン",
+        "ポットデス",
+        "ピクシー",
+        "バシャーモ",
+        "グソクムシャ",
+        "イエッサン"
+      ],
+      "rank": 995,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "リザードン",
+        "ラグラージ",
+        "ブリジュラス",
+        "ペリッパー",
+        "グレンアルマ",
+        "イエッサン"
+      ],
+      "rank": 4,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "リザードン",
+        "ボーマンダ",
+        "イダイトウ",
+        "イエッサン",
+        "ドドゲザン",
+        "ニンフィア"
+      ],
+      "rank": 25,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "ペリッパー",
+        "イダイトウ",
+        "オオニューラ",
+        "ブリジュラス",
+        "ライチュウ",
+        "グソクムシャ"
+      ],
+      "rank": 27,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "ガオガエン",
+        "イダイトウ",
+        "フラエッテ",
+        "ファイアロー",
+        "オオニューラ",
+        "ドドゲザン"
+      ],
+      "rank": 219,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "バンギラス",
+        "ドリュウズ",
+        "ボーマンダ",
+        "オオニューラ",
+        "イエッサン",
+        "ミロカロス"
+      ],
+      "rank": 228,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "ゲンガー",
+        "リザードン",
+        "ミロカロス",
+        "ガブリアス",
+        "ガオガエン",
+        "ゴリランダー"
+      ],
+      "rank": 288,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "サーナイト",
+        "イエッサン",
+        "ドドゲザン",
+        "イダイトウ",
+        "オオニューラ",
+        "カイリュー"
+      ],
+      "rank": 463,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "グレンアルマ",
+        "イエッサン",
+        "ズルズキン",
+        "ペリッパー",
+        "ブリジュラス",
+        "ラグラージ"
+      ],
+      "rank": 765,
+      "rating": 0,
+      "source": "public-pattern"
+    },
     {
       "members": [
         "リザードン",
@@ -2882,6 +4104,19 @@
     },
     {
       "members": [
+        "ブリジュラス",
+        "アシレーヌ",
+        "カバルドン",
+        "ルカリオ",
+        "ボーマンダ",
+        "ゴリランダー"
+      ],
+      "rank": 930,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
         "グソクムシャ",
         "セグレイブ",
         "アシレーヌ",
@@ -3033,6 +4268,19 @@
         "ジャラランガ"
       ],
       "rank": 271,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "ゴリランダー",
+        "オオニューラ",
+        "ユキメノコ",
+        "ファイアロー",
+        "ジャラランガ",
+        "ドドゲザン"
+      ],
+      "rank": 436,
       "rating": 0,
       "source": "public-pattern"
     },
@@ -21878,6 +23126,8 @@
     "SVランクマッチ・ranked_teams・scarlet-violet由来データは利用していません。"
   ],
   "sourceUrls": [
+    "https://champs.pokedb.tokyo/opendata/s7_single_ranked_teams.json",
+    "https://champs.pokedb.tokyo/opendata/s7_double_ranked_teams.json",
     "https://champs.pokedb.tokyo/opendata/s6_single_ranked_teams.json",
     "https://champs.pokedb.tokyo/opendata/s6_double_ranked_teams.json",
     "https://champs.pokedb.tokyo/opendata/s5_single_ranked_teams.json",
