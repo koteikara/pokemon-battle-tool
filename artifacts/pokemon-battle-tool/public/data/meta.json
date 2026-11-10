@@ -1,7 +1,7 @@
 {
   "source": "champions-derived",
   "game": "pokemon-champions",
-  "updatedAt": "2026-11-08T23:15:23.013Z",
+  "updatedAt": "2026-11-10T02:26:40.545Z",
   "pokemon": {},
   "moves": {},
   "abilities": {},
@@ -997,6 +997,19 @@
     },
     {
       "members": [
+        "ペリッパー",
+        "ラグラージ",
+        "ギルガルド",
+        "アシレーヌ",
+        "ドラパルト",
+        "グソクムシャ"
+      ],
+      "rank": 231,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
         "メタモン",
         "ウルガモス",
         "ボーマンダ",
@@ -1070,6 +1083,19 @@
         "キラフロル"
       ],
       "rank": 254,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "ニョロトノ",
+        "ラグラージ",
+        "ブリジュラス",
+        "イエッサン",
+        "マスカーニャ",
+        "ペリッパー"
+      ],
+      "rank": 259,
       "rating": 0,
       "source": "public-pattern"
     },
@@ -1278,6 +1304,19 @@
         "アシレーヌ"
       ],
       "rank": 378,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "ゴリランダー",
+        "カイリュー",
+        "サーフゴー",
+        "バンギラス",
+        "カバルドン",
+        "ドヒドイデ"
+      ],
+      "rank": 382,
       "rating": 0,
       "source": "public-pattern"
     },
@@ -1738,6 +1777,19 @@
     },
     {
       "members": [
+        "グソクムシャ",
+        "ガブリアス",
+        "アシレーヌ",
+        "マスカーニャ",
+        "ゲンガー",
+        "リザードン"
+      ],
+      "rank": 675,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
         "エースバーン",
         "フラエッテ",
         "エルフーン",
@@ -2076,6 +2128,19 @@
     },
     {
       "members": [
+        "フラエッテ",
+        "ブリジュラス",
+        "イダイトウ",
+        "カイリュー",
+        "アシレーヌ",
+        "ミミッキュ"
+      ],
+      "rank": 802,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
         "ブリジュラス",
         "グソクムシャ",
         "イダイトウ",
@@ -2149,6 +2214,19 @@
         "メタモン"
       ],
       "rank": 823,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "カバルドン",
+        "ボーマンダ",
+        "サーフゴー",
+        "ミミッキュ",
+        "ルカリオ",
+        "ギャラドス"
+      ],
+      "rank": 844,
       "rating": 0,
       "source": "public-pattern"
     },
