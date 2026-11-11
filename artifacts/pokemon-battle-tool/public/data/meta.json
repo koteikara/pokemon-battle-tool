@@ -1,7 +1,7 @@
 {
   "source": "champions-derived",
   "game": "pokemon-champions",
-  "updatedAt": "2026-11-10T02:26:40.545Z",
+  "updatedAt": "2026-11-11T00:17:02.330Z",
   "pokemon": {},
   "moves": {},
   "abilities": {},
@@ -100,6 +100,19 @@
     },
     {
       "members": [
+        "ボーマンダ",
+        "キラフロル",
+        "カバルドン",
+        "ルカリオ",
+        "ドヒドイデ",
+        "マスカーニャ"
+      ],
+      "rank": 16,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
         "グソクムシャ",
         "ガブリアス",
         "ゲッコウガ",
@@ -121,6 +134,19 @@
         "メタモン"
       ],
       "rank": 23,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "スターミー",
+        "サーフゴー",
+        "カビゴン",
+        "リザードン",
+        "ブリムオン",
+        "ガブリアス"
+      ],
+      "rank": 24,
       "rating": 0,
       "source": "public-pattern"
     },
@@ -763,6 +789,19 @@
     },
     {
       "members": [
+        "ニンフィア",
+        "ボーマンダ",
+        "マフォクシー",
+        "ガブリアス",
+        "ハッサム",
+        "ドドゲザン"
+      ],
+      "rank": 160,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
         "グソクムシャ",
         "サーフゴー",
         "カビゴン",
@@ -1244,6 +1283,19 @@
     },
     {
       "members": [
+        "ペリッパー",
+        "ラグラージ",
+        "メガニウム",
+        "グソクムシャ",
+        "ブリジュラス",
+        "イダイトウ"
+      ],
+      "rank": 355,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
         "エルフーン",
         "ルカリオ",
         "カイリュー",
@@ -1512,6 +1564,19 @@
         "オニシズクモ"
       ],
       "rank": 537,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "スコヴィラン",
+        "エアームド",
+        "カビゴン",
+        "メタモン",
+        "ドラミドロ",
+        "ヤドラン"
+      ],
+      "rank": 544,
       "rating": 0,
       "source": "public-pattern"
     },
@@ -8051,6 +8116,19 @@
         "ライチュウ"
       ],
       "rank": 855,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "クチート",
+        "ガブリアス",
+        "イダイトウ",
+        "ロトム",
+        "ニンフィア",
+        "ゲンガー"
+      ],
+      "rank": 861,
       "rating": 0,
       "source": "public-pattern"
     },
