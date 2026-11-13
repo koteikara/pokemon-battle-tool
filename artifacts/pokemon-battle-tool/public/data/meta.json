@@ -1,7 +1,7 @@
 {
   "source": "champions-derived",
   "game": "pokemon-champions",
-  "updatedAt": "2026-11-12T01:43:04.058Z",
+  "updatedAt": "2026-11-13T00:46:05.955Z",
   "pokemon": {},
   "moves": {},
   "abilities": {},
@@ -901,6 +901,19 @@
         "ダイケンキ"
       ],
       "rank": 185,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "ハッサム",
+        "ガブリアス",
+        "カイリュー",
+        "サーフゴー",
+        "ゲッコウガ",
+        "ミミッキュ"
+      ],
+      "rank": 193,
       "rating": 0,
       "source": "public-pattern"
     },
@@ -2097,6 +2110,19 @@
         "ラウドボーン"
       ],
       "rank": 759,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "バサギリ",
+        "ペンドラー",
+        "ウルガモス",
+        "オニシズクモ",
+        "ビビヨン",
+        "グソクムシャ"
+      ],
+      "rank": 765,
       "rating": 0,
       "source": "public-pattern"
     },
