@@ -1,7 +1,7 @@
 {
   "source": "champions-derived",
   "game": "pokemon-champions",
-  "updatedAt": "2026-11-14T23:28:22.679Z",
+  "updatedAt": "2026-11-15T23:37:41.897Z",
   "pokemon": {},
   "moves": {},
   "abilities": {},
@@ -1868,6 +1868,19 @@
     },
     {
       "members": [
+        "イエッサン",
+        "グレンアルマ",
+        "セグレイブ",
+        "キュウコン",
+        "カメックス",
+        "ガブリアス"
+      ],
+      "rank": 680,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
         "エースバーン",
         "フラエッテ",
         "エルフーン",
@@ -2162,6 +2175,19 @@
         "カイリュー"
       ],
       "rank": 786,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "カバルドン",
+        "ルカリオ",
+        "カイリュー",
+        "アシレーヌ",
+        "ブリジュラス",
+        "ミミッキュ"
+      ],
+      "rank": 791,
       "rating": 0,
       "source": "public-pattern"
     },
