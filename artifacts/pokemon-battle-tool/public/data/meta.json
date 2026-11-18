@@ -1,7 +1,7 @@
 {
   "source": "champions-derived",
   "game": "pokemon-champions",
-  "updatedAt": "2026-11-17T02:40:38.936Z",
+  "updatedAt": "2026-11-18T01:55:58.787Z",
   "pokemon": {},
   "moves": {},
   "abilities": {},
@@ -1252,6 +1252,19 @@
         "ピクシー"
       ],
       "rank": 293,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "ドラミドロ",
+        "エアームド",
+        "ミミッキュ",
+        "スコヴィラン",
+        "イダイトウ",
+        "カイリュー"
+      ],
+      "rank": 315,
       "rating": 0,
       "source": "public-pattern"
     },
@@ -2526,6 +2539,19 @@
         "ガブリアス"
       ],
       "rank": 938,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "ペリッパー",
+        "ラグラージ",
+        "ブリジュラス",
+        "グソクムシャ",
+        "ドラパルト",
+        "ドリュウズ"
+      ],
+      "rank": 939,
       "rating": 0,
       "source": "public-pattern"
     },
