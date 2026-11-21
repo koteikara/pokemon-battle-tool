@@ -1,7 +1,7 @@
 {
   "source": "champions-derived",
   "game": "pokemon-champions",
-  "updatedAt": "2026-11-21T00:58:47.693Z",
+  "updatedAt": "2026-11-21T23:58:39.967Z",
   "pokemon": {},
   "moves": {},
   "abilities": {},
@@ -329,6 +329,19 @@
         "イエッサン"
       ],
       "rank": 59,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "カバルドン",
+        "ボーマンダ",
+        "ギルガルド",
+        "アシレーヌ",
+        "キラフロル",
+        "アブソル"
+      ],
+      "rank": 60,
       "rating": 0,
       "source": "public-pattern"
     },
