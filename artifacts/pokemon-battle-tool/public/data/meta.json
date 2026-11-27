@@ -1,7 +1,7 @@
 {
   "source": "champions-derived",
   "game": "pokemon-champions",
-  "updatedAt": "2026-11-26T02:31:22.992Z",
+  "updatedAt": "2026-11-27T02:30:52.481Z",
   "pokemon": {},
   "moves": {},
   "abilities": {},
@@ -3155,6 +3155,19 @@
     },
     {
       "members": [
+        "アシレーヌ",
+        "ブリジュラス",
+        "ボーマンダ",
+        "ガブリアス",
+        "グソクムシャ",
+        "ロトム"
+      ],
+      "rank": 40,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
         "ゲンガー",
         "ハラバリー",
         "ブラッキー",
@@ -5503,6 +5516,19 @@
         "バイバニラ"
       ],
       "rank": 797,
+      "rating": 0,
+      "source": "public-pattern"
+    },
+    {
+      "members": [
+        "ラグラージ",
+        "ミミッキュ",
+        "マフォクシー",
+        "ハッサム",
+        "エンペルト",
+        "ボーマンダ"
+      ],
+      "rank": 804,
       "rating": 0,
       "source": "public-pattern"
     },
